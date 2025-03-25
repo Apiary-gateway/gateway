@@ -1,5 +1,5 @@
 
-# Welcome to our Gateway
+# Welcome to Our Gateway
 
 ### Useful commands
 * npm run build compile typescript to js
