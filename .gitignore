@@ -8,3 +8,6 @@ node_modules
 cdk.out
 
 .env
+
+node_modules/
+.cdkout/

@@ -1,19 +1,20 @@
 import { z } from 'zod';
-import callOpenAI from './util/callOpenAI';
-import callAnthropic from './util/callAnthropic';
-import standardizeResponse from './util/standardizeResponse';
+import callLLM from './util/callLLM';
 import { saveMessage, getMessageHistory  } from './util/getAndSaveMessages';
+
 
 const RequestSchema = z.object({ 
     prompt: z.string().min(1),
     threadID: z.string().optional(),
-    provider: z.enum([ 'openai', 'anthropic' ]).optional()
+    provider: z.enum([ 'openai', 'anthropic' ]).optional(),
+    model: z.enum([ 'gpt-3.5-turbo', 'gpt-4', 'claude-3-opus-20240229' ]).optional(),
 })
 
 type RequestPayload = z.infer<typeof RequestSchema>;
 
 export const handler = async (event: any) => {
     try { 
+        console.log('Environment vars:', process.env);
         const body = typeof event.body === 'string' ? JSON.parse(event.body) : event.body;
         const parsed = RequestSchema.safeParse(body);
         
@@ -29,7 +30,7 @@ export const handler = async (event: any) => {
 
         const { prompt } = parsed.data;
         const threadID = parsed.data.threadID || Date.now().toString();
-        let { provider } = parsed.data;
+        let { provider, model } = parsed.data;
         const history = await getMessageHistory(threadID);
 
         if (!prompt) {
@@ -51,17 +52,12 @@ export const handler = async (event: any) => {
             provider = Math.random() < 0.5 ? 'openai' : 'anthropic';
         }
 
-        const response = await (provider === 'openai'
-            ? callOpenAI(history, prompt)
-            : callAnthropic(history, prompt)
-        );
-
-        const standardizedResponse = standardizeResponse(provider, response);
+        const response = await callLLM(history, prompt, provider, model);
 
         await saveMessage({
             threadID: threadID,
             role: 'assistant',
-            content: standardizedResponse.text,
+            content: response.text,
         })
 
         return {
@@ -69,7 +65,7 @@ export const handler = async (event: any) => {
             body: JSON.stringify({
                 threadID,
                 provider,
-                response: standardizedResponse,
+                response,
             }),
         };
     } catch (error) {
