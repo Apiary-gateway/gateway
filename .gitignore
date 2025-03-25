@@ -11,3 +11,4 @@ cdk.out
 
 node_modules/
 .cdkout/
+out.template.json
