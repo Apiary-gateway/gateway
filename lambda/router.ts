@@ -14,7 +14,7 @@ type RequestPayload = z.infer<typeof RequestSchema>;
 
 export const handler = async (event: any) => {
     try { 
-        console.log('Environment vars:', process.env);
+
         const body = typeof event.body === 'string' ? JSON.parse(event.body) : event.body;
         const parsed = RequestSchema.safeParse(body);
         
