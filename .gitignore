@@ -10,5 +10,6 @@ cdk.out
 .env
 
 node_modules/
-.cdkout/
+.cdk.out/
 out.template.json
+.DS_Store

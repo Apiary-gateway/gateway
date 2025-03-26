@@ -1,14 +1,19 @@
-import { Stack, StackProps, Duration, RemovalPolicy, aws_logs, SecretValue } from 'aws-cdk-lib';
 import { Construct } from 'constructs';
-import * as lambda from 'aws-cdk-lib/aws-lambda';
-import * as lambdaNode from 'aws-cdk-lib/aws-lambda-nodejs';
-import * as dotenv from 'dotenv';
-import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
-import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
-import * as apigateway from 'aws-cdk-lib/aws-apigateway';
-import * as iam from 'aws-cdk-lib/aws-iam';
+import { 
+  aws_lambda as lambda,
+  aws_lambda_nodejs as lambdaNode,
+  aws_apigateway as apigateway,
+  aws_secretsmanager as secretsmanager,
+  aws_dynamodb as dynamodb,
+  aws_iam as iam,
+  aws_logs as logs,
+  Stack,
+  StackProps,
+  Duration,
+  RemovalPolicy,
+  SecretValue,
+} from 'aws-cdk-lib';
 
-dotenv.config();
 
 export class AiGatewayStack extends Stack {
   constructor(scope: Construct, id: string, props?: StackProps) {
@@ -61,9 +66,9 @@ export class AiGatewayStack extends Stack {
       ],
     });
 
-    const logGroup = new aws_logs.LogGroup(this, 'GatewayAccessLogs', {
+    const logGroup = new logs.LogGroup(this, 'GatewayAccessLogs', {
       logGroupName: `/aws/apigateway/${id}/access-logs`,
-      retention: aws_logs.RetentionDays.FOUR_MONTHS,
+      retention: logs.RetentionDays.FOUR_MONTHS,
       removalPolicy: RemovalPolicy.DESTROY,
     });
 
