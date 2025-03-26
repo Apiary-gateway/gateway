@@ -12,6 +12,10 @@
 ## Prototype Implementation
 This prototype:
 
+* Currently supports the following LLM providers and models:
+    * OpenAI: gpt-3.5-turbo, gpt-4
+    * Anthropic: claude-3-opus-20240229
+    * Gemini: gemini-1.5-pro
 * Transforms requests and responses using the TokenJS library.
 * Implements secrets management for storing LLM API keys
 * Requires an API key to send requests to the API Gateway. This key will be dynamically generated. To get the value of this key, you can either use the aws CLI utility or the AWS console:

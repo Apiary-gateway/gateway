@@ -7,4 +7,5 @@ export const MODELS: {
 } = {
     openai: ['gpt-3.5-turbo', 'gpt-4'],
     anthropic: ['claude-3-opus-20240229'],
+    gemini: ['gemini-1.5-pro'],
 }

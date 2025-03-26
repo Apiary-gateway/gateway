@@ -6,15 +6,15 @@ import { saveMessage, getMessageHistory  } from './util/getAndSaveMessages';
 const RequestSchema = z.object({ 
     prompt: z.string().min(1),
     threadID: z.string().optional(),
-    provider: z.enum([ 'openai', 'anthropic' ]).optional(),
-    model: z.enum([ 'gpt-3.5-turbo', 'gpt-4', 'claude-3-opus-20240229' ]).optional(),
+    provider: z.enum([ 'openai', 'anthropic', 'gemini' ]).optional(),
+    model: z.enum([ 'gpt-3.5-turbo', 'gpt-4', 'claude-3-opus-20240229', 'gemini-1.5-pro']).optional(),
 })
 
 type RequestPayload = z.infer<typeof RequestSchema>;
 
 export const handler = async (event: any) => {
     try { 
-        console.log('type of environment vars:', typeof process.env);
+
         const body = typeof event.body === 'string' ? JSON.parse(event.body) : event.body;
         const parsed = RequestSchema.safeParse(body);
         

@@ -110,7 +110,9 @@ export class AiGatewayStack extends Stack {
       proxy: true,
     });
     const routeResource = api.root.addResource('route');
-    routeResource.addMethod('POST', routerIntegration); 
+    routeResource.addMethod('POST', routerIntegration, {
+      apiKeyRequired: true,
+    }); 
 
     metadataTable.grantReadData(routerFn);
     messageTable.grantReadWriteData(routerFn);
