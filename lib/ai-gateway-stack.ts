@@ -1,4 +1,3 @@
-import { Stack, StackProps, Duration, RemovalPolicy, aws_logs, SecretValue } from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 import { 
   aws_lambda as lambda,
@@ -8,6 +7,11 @@ import {
   aws_dynamodb as dynamodb,
   aws_iam as iam,
   aws_logs as logs,
+  Stack,
+  StackProps,
+  Duration,
+  RemovalPolicy,
+  SecretValue,
 } from 'aws-cdk-lib';
 
 
@@ -62,9 +66,9 @@ export class AiGatewayStack extends Stack {
       ],
     });
 
-    const logGroup = new aws_logs.LogGroup(this, 'GatewayAccessLogs', {
+    const logGroup = new logs.LogGroup(this, 'GatewayAccessLogs', {
       logGroupName: `/aws/apigateway/${id}/access-logs`,
-      retention: aws_logs.RetentionDays.FOUR_MONTHS,
+      retention: logs.RetentionDays.FOUR_MONTHS,
       removalPolicy: RemovalPolicy.DESTROY,
     });
 
