@@ -23,6 +23,7 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",
     "@aws-sdk/client-dynamodb": "^3.772.0",
+    "@aws-sdk/client-s3": "^3.775.0",
     "@aws-sdk/client-secrets-manager": "^3.775.0",
     "@aws-sdk/lib-dynamodb": "^3.772.0",
     "@smithy/util-utf8": "^4.0.0",

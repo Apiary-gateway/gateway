@@ -1,3 +1,8 @@
+// util/logger.ts
+
+import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+import { v4 as uuidv4 } from 'uuid';
+
 export type VALID_PROVIDERS = 'openai' | 'anthropic' | 'gemini';
 export type VALID_MODELS =
   | 'gpt-3.5-turbo'
@@ -12,77 +17,41 @@ export interface CommonLogData {
   tokens_used: number;
   cost: number;
   RawRequest: string;
+  RawResponse?: string;
+  errorMessage?: string;
 }
 
-interface SuccessLogData extends CommonLogData {
-  RawResponse: string;
-}
+const s3 = new S3Client({ region: process.env.AWS_REGION });
+const LOG_BUCKET = process.env.LOG_BUCKET_NAME!;
+const LOG_PREFIX = 'logs/json';
 
-interface ErrorLogData extends CommonLogData {
-  errorMessage: string;
-}
+const saveLogToS3 = async (
+  log: CommonLogData,
+  status: 'success' | 'failure'
+) => {
+  const timestamp = new Date().toISOString();
+  const key = `${LOG_PREFIX}/${status}/${timestamp}_${uuidv4()}.json`;
 
-interface LogData {
-  id: string;
-  timestamp: string;
-  provider: VALID_PROVIDERS | null;
-  model: VALID_MODELS | null;
-  tokens_used: number;
-  cost: number;
-  raw_request: string;
-  raw_response: string | null;
-  is_successful: boolean;
-  error_message: string | null;
-}
-
-const getLatencyAndUtcDateTime = (requestStartTime: number) => {
-  const latency = Date.now() - requestStartTime;
-
-  const date = new Date(requestStartTime);
-  const utcDateTime = date.toUTCString();
-
-  return { latency, utcDateTime };
+  await s3.send(
+    new PutObjectCommand({
+      Bucket: LOG_BUCKET,
+      Key: key,
+      Body: JSON.stringify(log),
+      ContentType: 'application/json',
+    })
+  );
 };
 
-export const logSuccessfulRequest = async (successData: SuccessLogData) => {
-  const { latency, utcDateTime } = getLatencyAndUtcDateTime(
-    successData.requestStartTime
-  );
-
-  const logData: LogData = {
-    id: String(Math.random()),
-    timestamp: utcDateTime,
-    provider: successData.provider,
-    model: successData.model,
-    tokens_used: successData.tokens_used,
-    cost: successData.cost,
-    is_successful: true,
-    error_message: null,
-    raw_request: successData.RawRequest,
-    raw_response: successData.RawResponse,
-  };
-
-  console.log('Log Success Data', logData);
+export const logSuccessfulRequest = async (
+  logData: CommonLogData & { RawResponse: string }
+) => {
+  console.log('[Success]', logData);
+  await saveLogToS3(logData, 'success');
 };
 
-export const logFailedRequest = async (errorData: ErrorLogData) => {
-  const { latency, utcDateTime } = getLatencyAndUtcDateTime(
-    errorData.requestStartTime
-  );
-
-  const logData: LogData = {
-    id: String(Math.random()),
-    timestamp: utcDateTime,
-    provider: errorData.provider,
-    model: errorData.model,
-    tokens_used: errorData.tokens_used,
-    cost: errorData.cost,
-    raw_request: errorData.RawRequest,
-    raw_response: null,
-    is_successful: false,
-    error_message: errorData.errorMessage,
-  };
-
-  await Promise.resolve(1);
-  console.log('ErrorLogData', logData);
+export const logFailedRequest = async (
+  logData: CommonLogData & { errorMessage: string }
+) => {
+  console.error('[Failure]', logData);
+  await saveLogToS3(logData, 'failure');
 };
