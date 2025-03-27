@@ -132,7 +132,7 @@ export class AiGatewayStack extends Stack {
     athenaDatabase.addDependency(athenaWorkgroup);
     logBucket.grantRead(new iam.ServicePrincipal('athena.amazonaws.com'));
 
-    // Lambda function
+    // Router Lambda function (for /route)
     const routerFn = new lambdaNode.NodejsFunction(this, 'RouterFunction', {
       entry: 'lambda/router.ts',
       handler: 'handler',
@@ -147,6 +147,22 @@ export class AiGatewayStack extends Stack {
         LOG_TABLE_NAME: aiGatewayLogsTable.tableName,
         SECRET_NAME: llmApiKeys.secretName,
         SYSTEM_PROMPT: 'You are a helpful assistant. You answer in cockney.',
+        LOG_BUCKET_NAME: logBucket.bucketName,
+      },
+    });
+
+    // Logs Lambda function (for /logs)
+    const logsFn = new lambdaNode.NodejsFunction(this, 'LogsFunction', {
+      entry: 'lambda/logs.ts',
+      handler: 'handler',
+      runtime: lambda.Runtime.NODEJS_18_X,
+      timeout: Duration.seconds(30),
+      bundling: {
+        format: lambdaNode.OutputFormat.CJS,
+        externalModules: ['aws-sdk'],
+      },
+      environment: {
+        LOG_TABLE_NAME: aiGatewayLogsTable.tableName,
         LOG_BUCKET_NAME: logBucket.bucketName,
       },
     });
@@ -206,12 +222,21 @@ export class AiGatewayStack extends Stack {
     llmApiKeys.grantRead(routerFn);
     logBucket.grantReadWrite(routerFn);
 
-    // API route
+    aiGatewayLogsTable.grantReadData(logsFn); // Read-only for logs Lambda
+    logBucket.grantRead(logsFn); // Read-only for logs Lambda
+
+    // API route for /route
     const routerIntegration = new apigateway.LambdaIntegration(routerFn);
     const routeResource = api.root.addResource('route');
-
     routeResource.addMethod('POST', routerIntegration, {
       apiKeyRequired: true,
+    });
+
+    // API route for /logs (no API key required)
+    const logsIntegration = new apigateway.LambdaIntegration(logsFn);
+    const logsResource = api.root.addResource('logs');
+    logsResource.addMethod('GET', logsIntegration, {
+      apiKeyRequired: false, // No x_secret_key required
     });
   }
 }
