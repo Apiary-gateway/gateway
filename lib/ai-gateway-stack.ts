@@ -13,6 +13,7 @@ import {
   RemovalPolicy,
   SecretValue,
 } from 'aws-cdk-lib';
+import { Method } from 'aws-cdk-lib/aws-apigateway';
 
 
 export class AiGatewayStack extends Stack {
@@ -83,6 +84,15 @@ export class AiGatewayStack extends Stack {
         metricsEnabled: true,
         accessLogDestination: new apigateway.LogGroupLogDestination(logGroup),
         accessLogFormat: apigateway.AccessLogFormat.jsonWithStandardFields(),
+        cacheClusterEnabled: true,
+        cacheClusterSize: '0.5', // GB - valid values are 0.5 | 1.6 | 6.1 | 13.5 | 28.4 | 58.2 | 118 | 237
+        methodOptions: {
+          "/route/POST": {
+            cachingEnabled: true,
+            // cacheDataEncrypted: true,
+            cacheTtl: Duration.seconds(120),
+          }
+        }
       },
     });
 
@@ -113,10 +123,20 @@ export class AiGatewayStack extends Stack {
 
     const routerIntegration = new apigateway.LambdaIntegration(routerFn, {
       proxy: true,
+      cacheKeyParameters: [
+        "method.request.querystring.user",
+      ],
+      cacheNamespace: "userCache",
+      requestParameters: {
+        "integration.request.querystring.user": "method.request.querystring.user",
+      },
     });
     const routeResource = api.root.addResource('route');
     routeResource.addMethod('POST', routerIntegration, {
       apiKeyRequired: true,
+      requestParameters: {
+        "method.request.querystring.user": false, // optional query parameter
+      }, 
     }); 
 
     metadataTable.grantReadData(routerFn);
