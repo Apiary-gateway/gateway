@@ -25,11 +25,16 @@ export class AiGatewayStack extends Stack {
     const logBucket = new s3.Bucket(this, 'LLMLogBucket', {
       removalPolicy: RemovalPolicy.DESTROY,
       autoDeleteObjects: true,
-      lifecycleRules: [
-        {
-          expiration: Duration.days(90),
-        },
-      ],
+      lifecycleRules: [{ expiration: Duration.days(90) }],
+    });
+
+    // Single DynamoDB table
+    const aiGatewayLogsTable = new dynamodb.Table(this, 'AiGatewayLogsTable', {
+      tableName: 'ai-gateway-logs-table',
+      partitionKey: { name: 'PK', type: dynamodb.AttributeType.STRING },
+      sortKey: { name: 'SK', type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      removalPolicy: RemovalPolicy.DESTROY,
     });
 
     // Secrets Manager
@@ -40,19 +45,6 @@ export class AiGatewayStack extends Stack {
         GEMINI_API_KEY: SecretValue.unsafePlainText('your-api-key'),
         OPENAI_API_KEY: SecretValue.unsafePlainText('your-api-key'),
       },
-    });
-
-    // DynamoDB tables
-    const metadataTable = new dynamodb.Table(this, 'LLMMetadataTable', {
-      partitionKey: { name: 'provider', type: dynamodb.AttributeType.STRING },
-      sortKey: { name: 'modelName', type: dynamodb.AttributeType.STRING },
-      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
-    });
-
-    const messageTable = new dynamodb.Table(this, 'LLMMessageTable', {
-      partitionKey: { name: 'threadID', type: dynamodb.AttributeType.STRING },
-      sortKey: { name: 'timestamp', type: dynamodb.AttributeType.NUMBER },
-      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
     });
 
     // Athena setup
@@ -81,7 +73,7 @@ export class AiGatewayStack extends Stack {
       type: 'AWS::Glue::Table',
       properties: {
         CatalogId: this.account,
-        DatabaseName: 'ai_gateway_logs_db', // Direct reference to the name
+        DatabaseName: 'ai_gateway_logs_db',
         TableInput: {
           Name: 'ai_gateway_logs',
           TableType: 'EXTERNAL_TABLE',
@@ -104,13 +96,17 @@ export class AiGatewayStack extends Stack {
           StorageDescriptor: {
             Columns: [
               { Name: 'id', Type: 'string' },
+              { Name: 'thread_ts', Type: 'string' },
               { Name: 'timestamp', Type: 'string' },
               { Name: 'latency', Type: 'bigint' },
+              { Name: 'provider', Type: 'string' },
+              { Name: 'model', Type: 'string' },
               { Name: 'tokens_used', Type: 'bigint' },
               { Name: 'cost', Type: 'double' },
               { Name: 'raw_request', Type: 'string' },
               { Name: 'raw_response', Type: 'string' },
               { Name: 'error_message', Type: 'string' },
+              { Name: 'status', Type: 'string' },
             ],
             Location: `s3://${logBucket.bucketName}/logs/parquet/`,
             InputFormat:
@@ -136,7 +132,7 @@ export class AiGatewayStack extends Stack {
     athenaDatabase.addDependency(athenaWorkgroup);
     logBucket.grantRead(new iam.ServicePrincipal('athena.amazonaws.com'));
 
-    // Lambda function
+    // Router Lambda function (for /route)
     const routerFn = new lambdaNode.NodejsFunction(this, 'RouterFunction', {
       entry: 'lambda/router.ts',
       handler: 'handler',
@@ -144,14 +140,29 @@ export class AiGatewayStack extends Stack {
       timeout: Duration.seconds(30),
       bundling: {
         format: lambdaNode.OutputFormat.CJS,
-        externalModules: ['aws-sdk'], // Exclude only AWS SDK v2
-        nodeModules: ['@smithy/util-utf8'], // Include the problematic dependency
+        externalModules: ['aws-sdk'],
+        nodeModules: ['@smithy/util-utf8'],
       },
       environment: {
-        MESSAGE_TABLE_NAME: messageTable.tableName,
-        METADATA_TABLE_NAME: metadataTable.tableName,
+        LOG_TABLE_NAME: aiGatewayLogsTable.tableName,
         SECRET_NAME: llmApiKeys.secretName,
-        SYSTEM_PROMPT: `You are a helpful assistant. You answer in cockney.`,
+        SYSTEM_PROMPT: 'You are a helpful assistant. You answer in cockney.',
+        LOG_BUCKET_NAME: logBucket.bucketName,
+      },
+    });
+
+    // Logs Lambda function (for /logs)
+    const logsFn = new lambdaNode.NodejsFunction(this, 'LogsFunction', {
+      entry: 'lambda/logs.ts',
+      handler: 'handler',
+      runtime: lambda.Runtime.NODEJS_18_X,
+      timeout: Duration.seconds(30),
+      bundling: {
+        format: lambdaNode.OutputFormat.CJS,
+        externalModules: ['aws-sdk'],
+      },
+      environment: {
+        LOG_TABLE_NAME: aiGatewayLogsTable.tableName,
         LOG_BUCKET_NAME: logBucket.bucketName,
       },
     });
@@ -200,28 +211,32 @@ export class AiGatewayStack extends Stack {
 
     const usagePlan = api.addUsagePlan('BasicUsagePlan', {
       name: 'BasicUsagePlan',
-      throttle: {
-        rateLimit: 10,
-        burstLimit: 20,
-      },
+      throttle: { rateLimit: 10, burstLimit: 20 },
     });
 
     usagePlan.addApiKey(gatewayKey);
     usagePlan.addApiStage({ stage: api.deploymentStage });
 
     // Permissions
-    metadataTable.grantReadData(routerFn);
-    messageTable.grantReadWriteData(routerFn);
+    aiGatewayLogsTable.grantReadWriteData(routerFn);
     llmApiKeys.grantRead(routerFn);
-    logBucket.grantWrite(routerFn);
-    logBucket.grantPut(routerFn);
+    logBucket.grantReadWrite(routerFn);
 
-    // API route
+    aiGatewayLogsTable.grantReadData(logsFn); // Read-only for logs Lambda
+    logBucket.grantRead(logsFn); // Read-only for logs Lambda
+
+    // API route for /route
     const routerIntegration = new apigateway.LambdaIntegration(routerFn);
     const routeResource = api.root.addResource('route');
-
     routeResource.addMethod('POST', routerIntegration, {
       apiKeyRequired: true,
+    });
+
+    // API route for /logs (no API key required)
+    const logsIntegration = new apigateway.LambdaIntegration(logsFn);
+    const logsResource = api.root.addResource('logs');
+    logsResource.addMethod('GET', logsIntegration, {
+      apiKeyRequired: false, // No x_secret_key required
     });
   }
 }
