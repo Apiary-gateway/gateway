@@ -156,7 +156,7 @@ export class AiGatewayStack extends Stack {
       entry: 'lambda/logs.ts',
       handler: 'handler',
       runtime: lambda.Runtime.NODEJS_18_X,
-      timeout: Duration.seconds(30),
+      timeout: Duration.minutes(3), // Increased for Athena queries (data + count)
       bundling: {
         format: lambdaNode.OutputFormat.CJS,
         externalModules: ['aws-sdk'],
@@ -224,6 +224,26 @@ export class AiGatewayStack extends Stack {
 
     aiGatewayLogsTable.grantReadData(logsFn); // Read-only for logs Lambda
     logBucket.grantRead(logsFn); // Read-only for logs Lambda
+    logsFn.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: [
+          'athena:StartQueryExecution',
+          'athena:GetQueryExecution',
+          'athena:GetQueryResults',
+          's3:GetObject',
+          's3:ListBucket',
+          'glue:GetTable',
+          'glue:GetDatabase',
+        ],
+        resources: [
+          `arn:aws:athena:${this.region}:${this.account}:workgroup/${athenaWorkgroup.name}`,
+          `arn:aws:glue:${this.region}:${this.account}:database/${athenaDatabase.node.id}`,
+          `arn:aws:glue:${this.region}:${this.account}:table/${athenaDatabase.node.id}/*`,
+          `arn:aws:s3:::${logBucket.bucketName}`,
+          `arn:aws:s3:::${logBucket.bucketName}/*`,
+        ],
+      })
+    );
 
     // API route for /route
     const routerIntegration = new apigateway.LambdaIntegration(routerFn);

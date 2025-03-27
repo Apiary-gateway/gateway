@@ -58,10 +58,10 @@ process.on('warning', (warning) => {
 const saveLog = async (log: CommonLogData, status: 'success' | 'failure') => {
   try {
     const now = new Date();
-    const timestamp = now.toISOString();
+    const timestamp = now.toISOString(); // e.g., "2025-03-27T21:41:07.770Z"
     const thread_ts = timestamp;
     const latency = BigInt(Date.now() - log.requestStartTime);
-    const date = timestamp.split('T')[0];
+    const date = timestamp.split('T')[0]; // "2025-03-27"
     const provider = log.provider ?? 'unknown';
     const model = log.model ?? 'unknown';
     const id = uuidv4();
@@ -116,13 +116,14 @@ const saveLog = async (log: CommonLogData, status: 'success' | 'failure') => {
       })
     );
 
-    // Write to DynamoDB with single-table design
+    // Write to DynamoDB with single-table design:
+    // PK is a constant ("LOG") and SK is "TS#<timestamp>"
     await ddb.send(
       new PutItemCommand({
         TableName: LOG_TABLE_NAME,
         Item: {
-          PK: { S: `LOG#${id}` },
-          SK: { S: `TS#${thread_ts}` },
+          PK: { S: 'LOG' },
+          SK: { S: `TS#${timestamp}` },
           id: { S: id },
           thread_ts: { S: thread_ts },
           timestamp: { S: timestamp },
