@@ -56,9 +56,9 @@ export const handler = async (event: any) => {
     }
 
     const { prompt } = parsed.data;
-    const threadID = parsed.data.threadID || Date.now().toString();
+    // const threadID = parsed.data.threadID || Date.now().toString();
     let { provider, model } = parsed.data;
-    const history = await getMessageHistory(threadID);
+    // const history = await getMessageHistory(threadID);
 
     // Type assertion because from parsed.data `provider` and `model` should comeout as `VALID_MODELS` and `VALID_PROVIDERS`
 
@@ -79,23 +79,23 @@ export const handler = async (event: any) => {
       };
     }
 
-    await saveMessage({
-      threadID: threadID,
-      role: 'user',
-      content: prompt,
-    });
+    // await saveMessage({
+    //   threadID: threadID,
+    //   role: 'user',
+    //   content: prompt,
+    // });
 
     if (!provider) {
       provider = Math.random() < 0.5 ? 'openai' : 'anthropic';
     }
 
-    const response = await callLLM(history, prompt, provider, model);
+    const response = await callLLM([], prompt, provider, model);
 
-    await saveMessage({
-      threadID: threadID,
-      role: 'assistant',
-      content: response.text,
-    });
+    // await saveMessage({
+    //   threadID: threadID,
+    //   role: 'assistant',
+    //   content: response.text,
+    // });
 
     await logSuccessfulRequest({
       ...logData,
@@ -105,7 +105,6 @@ export const handler = async (event: any) => {
     return {
       statusCode: 200,
       body: JSON.stringify({
-        threadID,
         provider,
         response,
       }),
