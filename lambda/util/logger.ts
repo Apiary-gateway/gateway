@@ -26,10 +26,10 @@ export interface CommonLogData {
 interface InternalLogData {
   id: string;
   timestamp: string;
-  latency: number;
+  latency: bigint;
   provider: string;
   model: string;
-  tokens_used: number;
+  tokens_used: bigint;
   cost: number;
   raw_request: string;
   raw_response?: string;
@@ -37,13 +37,15 @@ interface InternalLogData {
 }
 
 const s3 = new S3Client({ region: process.env.AWS_REGION });
-const LOG_BUCKET = process.env.LOG_BUCKET_NAME!;
+const LOG_BUCKET = process.env.LOG_BUCKET_NAME;
 
-// Optional: Suppress only Buffer() deprecation warning
+if (!LOG_BUCKET) {
+  throw new Error('LOG_BUCKET_NAME environment variable is required');
+}
+
+// Optional: Suppress Buffer() deprecation warning
 process.on('warning', (warning) => {
-  if (warning.name === 'DeprecationWarning' && warning.code === 'DEP0005') {
-    // Suppress Buffer() warning
-  } else {
+  if (warning.name !== 'DeprecationWarning') {
     console.warn(warning);
   }
 });
@@ -52,59 +54,63 @@ const saveLogToS3 = async (
   log: CommonLogData,
   status: 'success' | 'failure'
 ) => {
-  const now = new Date();
-  const timestamp = now.toISOString();
-  const latency = Date.now() - log.requestStartTime;
-  const date = timestamp.split('T')[0];
-  const provider = log.provider || 'unknown';
-  const model = log.model || 'unknown';
-  const id = uuidv4();
+  try {
+    const now = new Date();
+    const timestamp = now.toISOString();
+    const latency = BigInt(Date.now() - log.requestStartTime);
+    const date = timestamp.split('T')[0];
+    const provider = log.provider ?? 'unknown';
+    const model = log.model ?? 'unknown';
+    const id = uuidv4();
 
-  const structuredLog: InternalLogData = {
-    id,
-    timestamp,
-    latency,
-    provider,
-    model,
-    tokens_used: log.tokens_used,
-    cost: log.cost,
-    raw_request: log.RawRequest,
-    raw_response: log.RawResponse,
-    error_message: log.errorMessage,
-  };
+    const structuredLog: InternalLogData = {
+      id,
+      timestamp,
+      latency,
+      provider,
+      model,
+      tokens_used: BigInt(log.tokens_used),
+      cost: log.cost,
+      raw_request: log.RawRequest,
+      raw_response: log.RawResponse,
+      error_message: log.errorMessage,
+    };
 
-  const schema = new parquets.ParquetSchema({
-    id: { type: 'UTF8' },
-    timestamp: { type: 'UTF8' },
-    latency: { type: 'INT64' },
-    provider: { type: 'UTF8' },
-    model: { type: 'UTF8' },
-    tokens_used: { type: 'INT64' },
-    cost: { type: 'DOUBLE' },
-    raw_request: { type: 'UTF8' },
-    raw_response: { type: 'UTF8', optional: true },
-    error_message: { type: 'UTF8', optional: true },
-  });
+    const schema = new parquets.ParquetSchema({
+      id: { type: 'UTF8' },
+      timestamp: { type: 'UTF8' },
+      latency: { type: 'INT64' },
+      provider: { type: 'UTF8' },
+      model: { type: 'UTF8' },
+      tokens_used: { type: 'INT64' },
+      cost: { type: 'DOUBLE' },
+      raw_request: { type: 'UTF8' },
+      raw_response: { type: 'UTF8', optional: true },
+      error_message: { type: 'UTF8', optional: true },
+    });
 
-  const tmpFilePath = path.join(os.tmpdir(), `${id}.parquet`);
+    const tmpFilePath = path.join(os.tmpdir(), `${id}.parquet`);
 
-  const writer = await parquets.ParquetWriter.openFile(schema, tmpFilePath);
-  await writer.appendRow(structuredLog);
-  await writer.close();
+    const writer = await parquets.ParquetWriter.openFile(schema, tmpFilePath);
+    await writer.appendRow(structuredLog);
+    await writer.close();
 
-  const buffer = await readFile(tmpFilePath);
-  await unlink(tmpFilePath); // Clean up
+    const buffer = await readFile(tmpFilePath);
+    await unlink(tmpFilePath); // Clean up
 
-  const key = `logs/parquet/status=${status}/date=${date}/provider=${provider}/model=${model}/${id}.parquet`;
+    const key = `logs/parquet/status=${status}/date=${date}/provider=${provider}/model=${model}/${id}.parquet`;
 
-  await s3.send(
-    new PutObjectCommand({
-      Bucket: LOG_BUCKET,
-      Key: key,
-      Body: buffer,
-      ContentType: 'application/octet-stream',
-    })
-  );
+    await s3.send(
+      new PutObjectCommand({
+        Bucket: LOG_BUCKET,
+        Key: key,
+        Body: buffer,
+        ContentType: 'application/octet-stream',
+      })
+    );
+  } catch (err) {
+    console.error('[LogError] Failed to write log to S3:', err);
+  }
 };
 
 export const logSuccessfulRequest = async (
