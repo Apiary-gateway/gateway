@@ -11,14 +11,15 @@ const dynamoClient = new DynamoDBClient({});
 const athenaClient = new AthenaClient({});
 const LOG_TABLE_NAME = process.env.LOG_TABLE_NAME || '';
 const LOG_BUCKET_NAME = process.env.LOG_BUCKET_NAME || '';
+// Read the Athena workgroup name from the environment variable.
+const ATHENA_WORKGROUP = process.env.ATHENA_WORKGROUP || 'llm_logs_workgroup';
 const ATHENA_DATABASE = 'ai_gateway_logs_db';
-const ATHENA_WORKGROUP = 'llm_logs_workgroup';
 const PAGE_SIZE = 15;
 
-// Utility to get today's date in yyyy-MM-dd format
+// Utility to get today's date in yyyy-MM-dd format.
 const getTodayDate = (): string => new Date().toISOString().split('T')[0];
 
-// Map DynamoDB items to a consistent format with all fields
+// Map DynamoDB items to a consistent format with all fields.
 const mapDynamoItem = (item: any) => ({
   id: item.id?.S,
   thread_ts: item.thread_ts?.S,
@@ -34,7 +35,7 @@ const mapDynamoItem = (item: any) => ({
   status: item.status?.S,
 });
 
-// Map Athena rows to a consistent format
+// Map Athena rows to a consistent format.
 const mapAthenaRow = (row: any) => {
   const data = row.Data || [];
   return {
@@ -53,12 +54,12 @@ export const handler = async (
   try {
     const queryParams = event.queryStringParameters || {};
     const older = queryParams.older === 'true'; // ?older=true for Athena, otherwise DynamoDB
-    const page = parseInt(queryParams.page || '1', 10); // Default to page 1
+    // For DynamoDB, page is used; for Athena, use nextToken.
+    const page = parseInt(queryParams.page || '1', 10);
 
     console.log('Request parameters:', { older, page, queryParams });
 
-    if (isNaN(page) || page < 1) {
-      console.log('Invalid page number received:', page);
+    if (!older && (isNaN(page) || page < 1)) {
       return {
         statusCode: 400,
         body: JSON.stringify({ message: 'Invalid page number' }),
@@ -67,19 +68,17 @@ export const handler = async (
 
     let logs: any[] = [];
     let totalPages: number | undefined;
-    let lastKey: any = null;
+    let lastKey: any = null; // For DynamoDB, this is the native pagination token; for Athena, it's the NextToken.
 
     if (older) {
       console.log('Querying Athena for older logs');
-      // Query Athena for older logs with offset
+      // Athena does not support OFFSET; rely on fixed LIMIT and NextToken for pagination.
       const today = getTodayDate();
-      const offset = (page - 1) * PAGE_SIZE;
       const athenaQuery = `
         SELECT id, timestamp, status, provider, model, latency
         FROM "ai_gateway_logs"
-        WHERE date < '${today}'
         ORDER BY date DESC, timestamp DESC
-        LIMIT ${PAGE_SIZE} OFFSET ${offset}
+        LIMIT ${PAGE_SIZE}
       `;
       console.log('Athena query:', athenaQuery);
 
@@ -93,15 +92,14 @@ export const handler = async (
           Database: ATHENA_DATABASE,
         },
       });
-
       const queryExecution = await athenaClient.send(startQuery);
       const queryExecutionId = queryExecution.QueryExecutionId;
       console.log('Started Athena query execution:', queryExecutionId);
 
-      // Poll for query completion using GetQueryExecutionCommand
+      // Poll until the query is complete.
       let queryState: string | undefined;
       do {
-        await new Promise((resolve) => setTimeout(resolve, 1000)); // Wait 1 second
+        await new Promise((resolve) => setTimeout(resolve, 1000));
         const queryExecutionResult = await athenaClient.send(
           new GetQueryExecutionCommand({ QueryExecutionId: queryExecutionId })
         );
@@ -111,9 +109,7 @@ export const handler = async (
 
       if (queryState === 'FAILED') {
         const errorDetails = await athenaClient.send(
-          new GetQueryExecutionCommand({
-            QueryExecutionId: queryExecutionId,
-          })
+          new GetQueryExecutionCommand({ QueryExecutionId: queryExecutionId })
         );
         console.error(
           'Athena query failed:',
@@ -125,15 +121,23 @@ export const handler = async (
         );
       }
 
-      // Fetch results once query succeeds
+      // Use NextToken for Athena pagination.
+      const getQueryResultsInput: any = { QueryExecutionId: queryExecutionId };
+      if (queryParams.nextToken) {
+        getQueryResultsInput.NextToken = queryParams.nextToken;
+      }
       const queryResults = await athenaClient.send(
-        new GetQueryResultsCommand({ QueryExecutionId: queryExecutionId })
+        new GetQueryResultsCommand(getQueryResultsInput)
       );
-      logs = queryResults.ResultSet?.Rows?.slice(1).map(mapAthenaRow) || []; // Skip header row
+      // Skip header row (first row) and map the remaining rows.
+      logs = queryResults.ResultSet?.Rows?.slice(1).map(mapAthenaRow) || [];
       console.log('Retrieved logs from Athena:', { count: logs.length });
 
-      // Calculate total pages for Athena only on page 1
-      if (page === 1) {
+      // Capture the NextToken returned by Athena (if any)
+      lastKey = queryResults.NextToken || null;
+
+      // Optionally, calculate total pages on the first request (when no nextToken is provided).
+      if (!queryParams.nextToken) {
         console.log('Calculating total pages for Athena');
         const countQuery = `
           SELECT COUNT(*) as total
@@ -199,7 +203,7 @@ export const handler = async (
 
       const dynamoResult = await dynamoClient.send(dynamoQuery);
       logs = dynamoResult.Items?.map(mapDynamoItem) || [];
-      // Return the LastEvaluatedKey so the client can use it to fetch the next page
+      // Return the LastEvaluatedKey so the client can use it to fetch the next page.
       lastKey = dynamoResult.LastEvaluatedKey
         ? encodeURIComponent(JSON.stringify(dynamoResult.LastEvaluatedKey))
         : null;
@@ -211,10 +215,12 @@ export const handler = async (
       statusCode: 200,
       body: JSON.stringify({
         logs,
+        // For DynamoDB pagination, page and pageSize are used.
+        // For Athena, use nextToken (returned as lastKey) for subsequent requests.
         page,
         pageSize: PAGE_SIZE,
-        totalPages, // totalPages is available only for Athena queries
-        lastKey, // native pagination token for DynamoDB
+        totalPages, // totalPages is available only for Athena queries (if calculated)
+        lastKey, // For DynamoDB, this is the native pagination token; for Athena, it's the NextToken.
       }),
     };
   } catch (error) {
