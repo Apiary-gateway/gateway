@@ -13,7 +13,7 @@ const LOG_TABLE_NAME = process.env.LOG_TABLE_NAME || '';
 const LOG_BUCKET_NAME = process.env.LOG_BUCKET_NAME || '';
 const ATHENA_WORKGROUP = process.env.ATHENA_WORKGROUP || 'llm_logs_workgroup';
 const ATHENA_DATABASE = 'ai_gateway_logs_db';
-const PAGE_SIZE = 1;
+const PAGE_SIZE = 15;
 
 const getTodayDate = (): string => new Date().toISOString().split('T')[0];
 
