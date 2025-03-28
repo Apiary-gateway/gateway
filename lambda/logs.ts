@@ -14,7 +14,7 @@ const LOG_BUCKET_NAME = process.env.LOG_BUCKET_NAME || '';
 // Read the Athena workgroup name from the environment variable.
 const ATHENA_WORKGROUP = process.env.ATHENA_WORKGROUP || 'llm_logs_workgroup';
 const ATHENA_DATABASE = 'ai_gateway_logs_db';
-const PAGE_SIZE = 15;
+const PAGE_SIZE = 1;
 
 // Utility to get today's date in yyyy-MM-dd format.
 const getTodayDate = (): string => new Date().toISOString().split('T')[0];
