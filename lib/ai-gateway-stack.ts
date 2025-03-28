@@ -16,6 +16,7 @@ import {
   RemovalPolicy,
   SecretValue,
 } from 'aws-cdk-lib';
+import * as cr from 'aws-cdk-lib/custom-resources';
 
 export class AiGatewayStack extends Stack {
   constructor(scope: Construct, id: string, props?: StackProps) {
@@ -23,16 +24,35 @@ export class AiGatewayStack extends Stack {
 
     // S3 bucket for logs
     const logBucket = new s3.Bucket(this, 'LLMLogBucket', {
-      removalPolicy: RemovalPolicy.DESTROY,
-      autoDeleteObjects: true,
-      lifecycleRules: [
-        {
-          expiration: Duration.days(90),
-        },
-      ],
+      removalPolicy: RemovalPolicy.DESTROY, // Bucket will be deleted with stack
+      autoDeleteObjects: true, // Ensures all objects are deleted first
+      lifecycleRules: [{ expiration: Duration.days(90) }],
     });
 
-    // Secrets Manager
+    // Broadened S3 bucket policy for Athena
+    logBucket.addToResourcePolicy(
+      new iam.PolicyStatement({
+        actions: [
+          's3:PutObject',
+          's3:GetObject',
+          's3:ListBucket',
+          's3:GetBucketLocation',
+        ],
+        principals: [new iam.ServicePrincipal('athena.amazonaws.com')],
+        resources: [logBucket.bucketArn, `${logBucket.bucketArn}/*`],
+      })
+    );
+
+    // Single DynamoDB table
+    const aiGatewayLogsTable = new dynamodb.Table(this, 'AiGatewayLogsTable', {
+      tableName: 'ai-gateway-logs-table',
+      partitionKey: { name: 'PK', type: dynamodb.AttributeType.STRING },
+      sortKey: { name: 'SK', type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      removalPolicy: RemovalPolicy.DESTROY,
+    });
+
+    // Secrets Manager for API keys
     const llmApiKeys = new secretsmanager.Secret(this, 'LLMProviderKeys', {
       secretName: 'llm-provider-api-keys',
       secretObjectValue: {
@@ -42,22 +62,10 @@ export class AiGatewayStack extends Stack {
       },
     });
 
-    // DynamoDB tables
-    const metadataTable = new dynamodb.Table(this, 'LLMMetadataTable', {
-      partitionKey: { name: 'provider', type: dynamodb.AttributeType.STRING },
-      sortKey: { name: 'modelName', type: dynamodb.AttributeType.STRING },
-      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
-    });
-
-    const messageTable = new dynamodb.Table(this, 'LLMMessageTable', {
-      partitionKey: { name: 'threadID', type: dynamodb.AttributeType.STRING },
-      sortKey: { name: 'timestamp', type: dynamodb.AttributeType.NUMBER },
-      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
-    });
-
-    // Athena setup
+    // Athena workgroup
+    const athenaWorkgroupName = `${this.stackName}-llm_logs_workgroup`;
     const athenaWorkgroup = new athena.CfnWorkGroup(this, 'AthenaWorkgroup', {
-      name: 'llm_logs_workgroup',
+      name: athenaWorkgroupName,
       state: 'ENABLED',
       workGroupConfiguration: {
         resultConfiguration: {
@@ -65,7 +73,33 @@ export class AiGatewayStack extends Stack {
         },
       },
     });
+    athenaWorkgroup.applyRemovalPolicy(RemovalPolicy.RETAIN); // Retain for custom cleanup
 
+    // Custom resource to delete Athena workgroup before bucket
+    const athenaCleanup = new cr.AwsCustomResource(
+      this,
+      'AthenaWorkgroupCleanup',
+      {
+        onDelete: {
+          service: 'Athena',
+          action: 'deleteWorkGroup',
+          parameters: {
+            WorkGroup: athenaWorkgroupName,
+            RecursiveDeleteOption: true,
+          },
+          physicalResourceId: cr.PhysicalResourceId.of(athenaWorkgroupName),
+        },
+        policy: cr.AwsCustomResourcePolicy.fromSdkCalls({
+          resources: cr.AwsCustomResourcePolicy.ANY_RESOURCE,
+        }),
+        removalPolicy: RemovalPolicy.DESTROY,
+      }
+    );
+
+    // Ensure bucket depends on Athena cleanup to avoid new writes during deletion
+    logBucket.node.addDependency(athenaCleanup);
+
+    // Glue Database
     const athenaDatabase = new CfnResource(this, 'AthenaDatabase', {
       type: 'AWS::Glue::Database',
       properties: {
@@ -77,11 +111,12 @@ export class AiGatewayStack extends Stack {
       },
     });
 
+    // Glue Table for Athena
     const athenaTable = new CfnResource(this, 'AIGatewayLogsTable', {
       type: 'AWS::Glue::Table',
       properties: {
         CatalogId: this.account,
-        DatabaseName: 'ai_gateway_logs_db', // Direct reference to the name
+        DatabaseName: 'ai_gateway_logs_db',
         TableInput: {
           Name: 'ai_gateway_logs',
           TableType: 'EXTERNAL_TABLE',
@@ -104,6 +139,7 @@ export class AiGatewayStack extends Stack {
           StorageDescriptor: {
             Columns: [
               { Name: 'id', Type: 'string' },
+              { Name: 'thread_ts', Type: 'string' },
               { Name: 'timestamp', Type: 'string' },
               { Name: 'latency', Type: 'bigint' },
               { Name: 'tokens_used', Type: 'bigint' },
@@ -136,7 +172,7 @@ export class AiGatewayStack extends Stack {
     athenaDatabase.addDependency(athenaWorkgroup);
     logBucket.grantRead(new iam.ServicePrincipal('athena.amazonaws.com'));
 
-    // Lambda function
+    // Router Lambda function
     const routerFn = new lambdaNode.NodejsFunction(this, 'RouterFunction', {
       entry: 'lambda/router.ts',
       handler: 'handler',
@@ -144,15 +180,31 @@ export class AiGatewayStack extends Stack {
       timeout: Duration.seconds(30),
       bundling: {
         format: lambdaNode.OutputFormat.CJS,
-        externalModules: ['aws-sdk'], // Exclude only AWS SDK v2
-        nodeModules: ['@smithy/util-utf8'], // Include the problematic dependency
+        externalModules: ['aws-sdk'],
+        nodeModules: ['@smithy/util-utf8'],
       },
       environment: {
-        MESSAGE_TABLE_NAME: messageTable.tableName,
-        METADATA_TABLE_NAME: metadataTable.tableName,
+        LOG_TABLE_NAME: aiGatewayLogsTable.tableName,
         SECRET_NAME: llmApiKeys.secretName,
-        SYSTEM_PROMPT: `You are a helpful assistant. You answer in cockney.`,
+        SYSTEM_PROMPT: 'You are a helpful assistant. You answer in cockney.',
         LOG_BUCKET_NAME: logBucket.bucketName,
+      },
+    });
+
+    // Logs Lambda function
+    const logsFn = new lambdaNode.NodejsFunction(this, 'LogsFunction', {
+      entry: 'lambda/logs.ts',
+      handler: 'handler',
+      runtime: lambda.Runtime.NODEJS_18_X,
+      timeout: Duration.minutes(3),
+      bundling: {
+        format: lambdaNode.OutputFormat.CJS,
+        externalModules: ['aws-sdk'],
+      },
+      environment: {
+        LOG_TABLE_NAME: aiGatewayLogsTable.tableName,
+        LOG_BUCKET_NAME: logBucket.bucketName,
+        ATHENA_WORKGROUP: athenaWorkgroupName,
       },
     });
 
@@ -191,7 +243,6 @@ export class AiGatewayStack extends Stack {
     const cfnAccount = new apigateway.CfnAccount(this, 'ApiGatewayAccount', {
       cloudWatchRoleArn: apiGatewayLogRole.roleArn,
     });
-
     cfnAccount.node.addDependency(apiGatewayLogRole);
     api.node.addDependency(cfnAccount);
 
@@ -202,28 +253,74 @@ export class AiGatewayStack extends Stack {
 
     const usagePlan = api.addUsagePlan('BasicUsagePlan', {
       name: 'BasicUsagePlan',
-      throttle: {
-        rateLimit: 10,
-        burstLimit: 20,
-      },
+      throttle: { rateLimit: 10, burstLimit: 20 },
     });
-
     usagePlan.addApiKey(gatewayKey);
     usagePlan.addApiStage({ stage: api.deploymentStage });
 
-    // Permissions
-    metadataTable.grantReadData(routerFn);
-    messageTable.grantReadWriteData(routerFn);
+    // Permissions for Router Lambda
+    aiGatewayLogsTable.grantReadWriteData(routerFn);
     llmApiKeys.grantRead(routerFn);
-    logBucket.grantWrite(routerFn);
-    logBucket.grantPut(routerFn);
+    logBucket.grantReadWrite(routerFn);
 
-    // API route
+    // Permissions for Logs Lambda
+    aiGatewayLogsTable.grantReadData(logsFn);
+    logBucket.grantReadWrite(logsFn);
+    logsFn.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: [
+          'athena:StartQueryExecution',
+          'athena:GetQueryExecution',
+          'athena:GetQueryResults',
+          'athena:ListWorkGroups',
+          'athena:GetWorkGroup',
+        ],
+        resources: [
+          `arn:aws:athena:${this.region}:${this.account}:workgroup/${athenaWorkgroupName}`,
+        ],
+      })
+    );
+    logsFn.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: [
+          's3:GetObject',
+          's3:PutObject',
+          's3:ListBucket',
+          's3:GetBucketLocation',
+        ],
+        resources: [
+          `arn:aws:s3:::${logBucket.bucketName}`,
+          `arn:aws:s3:::${logBucket.bucketName}/*`,
+        ],
+      })
+    );
+    logsFn.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: [
+          'glue:GetTable',
+          'glue:GetTables',
+          'glue:GetDatabase',
+          'glue:GetDatabases',
+          'glue:GetPartition',
+          'glue:GetPartitions',
+        ],
+        resources: [
+          `arn:aws:glue:${this.region}:${this.account}:catalog`,
+          `arn:aws:glue:${this.region}:${this.account}:database/ai_gateway_logs_db`,
+          `arn:aws:glue:${this.region}:${this.account}:table/ai_gateway_logs_db/ai_gateway_logs`,
+        ],
+      })
+    );
+
+    // API routes
     const routerIntegration = new apigateway.LambdaIntegration(routerFn);
     const routeResource = api.root.addResource('route');
-
     routeResource.addMethod('POST', routerIntegration, {
       apiKeyRequired: true,
     });
+
+    const logsIntegration = new apigateway.LambdaIntegration(logsFn);
+    const logsResource = api.root.addResource('logs');
+    logsResource.addMethod('GET', logsIntegration, { apiKeyRequired: false });
   }
 }
