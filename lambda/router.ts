@@ -21,9 +21,10 @@ const RequestSchema = z.object({
       'gemini-1.5-pro',
     ])
     .optional(),
+  userId: z.string().min(1).optional(),
 });
 
-// type RequestPayload = z.infer<typeof RequestSchema>;
+export type RequestPayload = z.infer<typeof RequestSchema>;
 
 export const handler = async (event: any) => {
   const logData: CommonLogData = {

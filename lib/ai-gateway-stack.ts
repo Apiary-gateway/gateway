@@ -52,6 +52,16 @@ export class AiGatewayStack extends Stack {
       removalPolicy: RemovalPolicy.DESTROY,
     });
 
+    // Caching DynamoDB table
+    const aiGatewayCacheTable = new dynamodb.Table(this, 'AiGatewayCacheTable', {
+      tableName: 'ai-gateway-cache-table',
+      partitionKey: { name: 'userId', type: dynamodb.AttributeType.STRING },
+      sortKey: { name: 'cacheKey', type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      removalPolicy: RemovalPolicy.DESTROY,
+      timeToLiveAttribute: 'ttl', // Automatically remove expired items
+    });
+
     // Secrets Manager for API keys
     const llmApiKeys = new secretsmanager.Secret(this, 'LLMProviderKeys', {
       secretName: 'llm-provider-api-keys',
@@ -188,6 +198,7 @@ export class AiGatewayStack extends Stack {
         SECRET_NAME: llmApiKeys.secretName,
         SYSTEM_PROMPT: 'You are a helpful assistant. You answer in cockney.',
         LOG_BUCKET_NAME: logBucket.bucketName,
+        CACHE_TABLE_NAME: aiGatewayCacheTable.tableName,
       },
     });
 
@@ -235,8 +246,6 @@ export class AiGatewayStack extends Stack {
         metricsEnabled: true,
         accessLogDestination: new apigateway.LogGroupLogDestination(logGroup),
         accessLogFormat: apigateway.AccessLogFormat.jsonWithStandardFields(),
-        // cacheClusterEnabled: true,
-        // cacheClusterSize: '0.5', // GB - valid values are 0.5 | 1.6 | 6.1 | 13.5 | 28.4 | 58.2 | 118 | 237
       },
     });
 
@@ -259,6 +268,7 @@ export class AiGatewayStack extends Stack {
     usagePlan.addApiStage({ stage: api.deploymentStage });
 
     // Permissions for Router Lambda
+    aiGatewayCacheTable.grantReadWriteData(routerFn);
     aiGatewayLogsTable.grantReadWriteData(routerFn);
     llmApiKeys.grantRead(routerFn);
     logBucket.grantReadWrite(routerFn);
