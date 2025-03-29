@@ -3,19 +3,20 @@ import {
   GetItemCommand,
   PutItemCommand,
 } from "@aws-sdk/client-dynamodb";
+import type { CompletionResponse } from 'token.js';
 import { RequestPayload } from '../router';
 
 // TODOS
-// add cache check/add to cache logic to `router`
 // include cache hit or miss header in response from `router`
+// format cached response better
 // add to README - optional `userId` field in request body for cache partitioning
-// check in the console that TTL is enabled 
+// add configuration to `router` function to conditionally check just simple cache or both simple & semantic
 
 const dynamoClient = new DynamoDBClient();
 const CACHE_TABLE_NAME = process.env.CACHE_TABLE_NAME || '';
 const CACHE_TTL_SECONDS = 60 * 5; // 5 minutes
 
-export const checkCache = async (body: RequestPayload) => {
+export async function checkSimpleCache(body: RequestPayload) {
   const [ userId, cacheKey ] = getCacheKeys(body);
 
   const input = {
@@ -28,6 +29,7 @@ export const checkCache = async (body: RequestPayload) => {
         S: cacheKey
       } 
     },
+    // only send back `llmResponse` field?
     // ProjectionExpression: 'llmResponse',
   };
   
@@ -38,7 +40,10 @@ export const checkCache = async (body: RequestPayload) => {
 }
 
 // Function to store result in cache
-async function storeInCache(body: RequestPayload, llmResponse: string) {
+export async function addToSimpleCache(
+  body: RequestPayload, 
+  llmResponse: { text: string, usage: CompletionResponse['usage'] }
+) {
   const [ userId, cacheKey ] = getCacheKeys(body);
   const ttl = Math.floor(Date.now() / 1000) + CACHE_TTL_SECONDS;
 
@@ -52,7 +57,7 @@ async function storeInCache(body: RequestPayload, llmResponse: string) {
         S: cacheKey
       }, 
       llmResponse: {
-        S: llmResponse
+        S: JSON.stringify(llmResponse)
       }, 
       ttl: {
         N: String(ttl)
@@ -61,8 +66,7 @@ async function storeInCache(body: RequestPayload, llmResponse: string) {
   };
   
   const command = new PutItemCommand(input);
-  // don't await - no need to wait here. Check that it still works though
-  dynamoClient.send(command);
+  await dynamoClient.send(command);
 }
 
 function getCacheKeys(requestBody: RequestPayload): string[] {

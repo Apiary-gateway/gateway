@@ -8,6 +8,7 @@ import {
   VALID_MODELS,
   VALID_PROVIDERS,
 } from './util/logger';
+import { addToSimpleCache, checkSimpleCache } from './util/cache';
 
 const RequestSchema = z.object({
   prompt: z.string().min(1),
@@ -86,6 +87,19 @@ export const handler = async (event: any) => {
     //   content: prompt,
     // });
 
+    // check for response in simple cache
+    // Mar 29 - this version will not include provider in response if provider not specified
+    const simpleCachedResponse = await checkSimpleCache(parsed.data);
+    if (simpleCachedResponse) {
+      return {
+        statusCode: 200,
+        body: JSON.stringify({
+          provider,
+          simpleCachedResponse,
+        }),
+      };
+    }
+
     if (!provider) {
       provider = Math.random() < 0.5 ? 'openai' : 'anthropic';
     }
@@ -102,6 +116,9 @@ export const handler = async (event: any) => {
       ...logData,
       RawResponse: JSON.stringify(response),
     });
+
+    // don't await - no need to wait here
+    addToSimpleCache(parsed.data, response);
 
     return {
       statusCode: 200,
