@@ -9,14 +9,20 @@ import {
   aws_logs as logs,
   aws_s3 as s3,
   aws_athena as athena,
+  aws_opensearchserverless as opensearch,
+  CfnOutput,
   CfnResource,
   Stack,
   StackProps,
   Duration,
   RemovalPolicy,
   SecretValue,
+  Resource,
 } from 'aws-cdk-lib';
 import * as cr from 'aws-cdk-lib/custom-resources';
+import { timeStamp } from 'console';
+import { ResourceType } from 'aws-cdk-lib/aws-config';
+import { Permission } from '@aws-sdk/client-s3';
 
 export class AiGatewayStack extends Stack {
   constructor(scope: Construct, id: string, props?: StackProps) {
@@ -60,6 +66,81 @@ export class AiGatewayStack extends Stack {
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
       removalPolicy: RemovalPolicy.DESTROY,
       timeToLiveAttribute: 'ttl', // Automatically remove expired items
+    });
+
+    // Security policy for OpenSearch Serverless collection for semantic cache
+    const encryptionPolicy = new opensearch.CfnSecurityPolicy(this, 'OpenSearchEncryptionPolicy', {
+      name: 'semantic-cache-encryption-policy',
+      type: 'encryption',
+      policy: JSON.stringify({
+        Rules: [
+          {
+            ResourceType: 'collection',
+            Resource: ['collection/semantic-cache']
+          }
+        ],
+        AWSOwnedKey: true
+      })
+    });
+
+    // OpenSearch Serverless collection for semantic cache
+    const vectorCollection = new opensearch.CfnCollection(this, 'SemanticCacheCollection', {
+      name: 'semantic-cache',
+      type: 'VECTORSEARCH',
+    });
+
+    vectorCollection.node.addDependency(encryptionPolicy);
+
+    // IAM role for Lambda to invoke Bedrock models and access OpenSearch API
+    const semanticCacheLambdaRole = new iam.Role(this, 'SemanticCacheLambdaRole', {
+      assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
+      managedPolicies: [
+        iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AWSLambdaBasicExecutionRole')
+      ]
+    });
+
+    // Network access policy for OpenSearch collection (public access, not VPC)
+    new opensearch.CfnAccessPolicy(this, 'OpenSearchAccessPolicy', {
+      name: 'semantic-cache-access-policy',
+      type: 'data',
+      policy: JSON.stringify([
+        {
+          Rules: [
+            {
+              ResourceType: 'collection',
+              Resource: [`collection/${vectorCollection.name}`],
+              Permission: [
+                // TODO: try locking this down more? i.e. just the permissions below it
+                "aoss:*"
+                // // lets the Principal list metadata about the collection
+                // "aoss:DescribeCollectionItems",
+                // "aoss:ReadDocument",
+                // "aoss:WriteDocument"
+              ],
+            }
+          ],
+          // TODO: try locking this down more - specific Lambda function ARN and/or other roles?
+          Principal: [`${semanticCacheLambdaRole.roleArn}`]
+        }
+      ])
+    });
+
+    semanticCacheLambdaRole.addToPolicy(new iam.PolicyStatement({
+      actions: ['bedrock:InvokeModel'],
+      // TODO: probably limit this to a specific Bedrock model(s)
+      resources: ['*']
+    }));    
+
+    semanticCacheLambdaRole.addToPolicy(new iam.PolicyStatement({
+      // full access to AWS OpenSearch Serverless API
+      actions: ['aoss:APIAccessAll'],
+      // TODO: limit this more to specific resources?
+      resources: ['*']
+    }));
+    
+    new CfnOutput(this, 'OpenSearchEndpoint', {
+      value: `https://${vectorCollection.attrCollectionEndpoint}`, // or collection.attrDashboardEndpoint
+      exportName: 'OpenSearchCollectionEndpoint',
     });
 
     // Secrets Manager for API keys
@@ -188,6 +269,7 @@ export class AiGatewayStack extends Stack {
       handler: 'handler',
       runtime: lambda.Runtime.NODEJS_18_X,
       timeout: Duration.seconds(30),
+      role: semanticCacheLambdaRole,
       bundling: {
         format: lambdaNode.OutputFormat.CJS,
         externalModules: ['aws-sdk'],
@@ -199,6 +281,8 @@ export class AiGatewayStack extends Stack {
         SYSTEM_PROMPT: 'You are a helpful assistant. You answer in cockney.',
         LOG_BUCKET_NAME: logBucket.bucketName,
         CACHE_TABLE_NAME: aiGatewayCacheTable.tableName,
+        OPENSEARCH_ENDPOINT: vectorCollection.attrCollectionEndpoint,
+        OPENSEARCH_INDEX: 'semantic-cache-index',
       },
     });
 

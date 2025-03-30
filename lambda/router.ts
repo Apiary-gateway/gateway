@@ -8,7 +8,7 @@ import {
   VALID_MODELS,
   VALID_PROVIDERS,
 } from './util/logger';
-import { addToSimpleCache, checkSimpleCache } from './util/cache';
+import { addToSimpleCache, checkSimpleCache } from './util/simpleCache';
 
 const RequestSchema = z.object({
   prompt: z.string().min(1),
