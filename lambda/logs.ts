@@ -182,3 +182,11 @@ export const handler = async (
     };
   }
 };
+
+// export const handler = async (event: any) => {
+//   console.log('Logs Lambda invoked:', event);
+//   return {
+//     statusCode: 200,
+//     body: JSON.stringify([{ id: 'test', message: 'Dummy log' }]),
+//   };
+// };
