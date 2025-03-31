@@ -34,7 +34,7 @@ import {
   VALID_PROVIDERS,
 } from './util/logger';
 import { addToSimpleCache, checkSimpleCache } from './util/simpleCache';
-import { addToSemanticCache, checkSemanticCache, getEmbedding } from './util/semanticCache';
+import { addToSemanticCache, checkSemanticCache, getEmbedding, signedGet } from './util/semanticCache';
 import { parse } from 'path';
 
 const RequestSchema = z.object({
@@ -131,9 +131,14 @@ export const handler = async (event: any) => {
       provider = Math.random() < 0.5 ? 'openai' : 'anthropic';
     }
 
-    const requestEmbedding = await getEmbedding(prompt);
+    const requestEmbedding = [1, 2, 3];
+    // const requestEmbedding = await getEmbedding(prompt);
     // const semanticCacheResponse = await checkSemanticCache(parsed.data, requestEmbedding);
-    const semanticCacheResponse = await checkSemanticCache(parsed.data, requestEmbedding);
+    // const semanticCacheResponse = await checkSemanticCache(parsed.data, requestEmbedding);
+    // console.log('semantic cache response:', semanticCacheResponse);
+    const indices = await signedGet('/semantic-cache-index/_search');
+    console.log('test from router:', indices);
+    
     // if (semanticCacheResponse && semanticCacheResponse[0]) {
     //   const [endpoint, index] = semanticCacheResponse;
     //   console.log('collection endpoint from router:', endpoint);

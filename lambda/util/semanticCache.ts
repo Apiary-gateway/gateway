@@ -1,7 +1,56 @@
 import { BedrockRuntimeClient, InvokeModelCommand } from '@aws-sdk/client-bedrock-runtime';
-import axios from 'axios';
+import axios, { AxiosError } from 'axios';
 import { RequestPayload } from '../router';
 import { CompletionResponse } from 'token.js';
+
+import { HttpRequest } from '@aws-sdk/protocol-http';
+import { SignatureV4 } from '@aws-sdk/signature-v4';
+import { defaultProvider } from '@aws-sdk/credential-provider-node';
+import { Sha256 } from '@aws-crypto/sha256-js';
+
+const region = process.env.AWS_REGION!;
+const endpoint = process.env.OPENSEARCH_ENDPOINT!; // Should look like https://abc.collection.region.aoss.amazonaws.com
+const credentialsProvider = defaultProvider();
+
+export async function signedGet(path: string) {
+  try {
+    // console.log('OpenSearch endpoint:', endpoint);
+
+    const credentials = await credentialsProvider();
+  
+    const signer = new SignatureV4({
+      credentials,
+      region,
+      service: 'aoss',
+      sha256: Sha256,
+    });
+  
+    const request = new HttpRequest({
+      method: 'GET',
+      protocol: 'https:',
+      hostname: new URL(endpoint).hostname,
+      path,
+      headers: {
+        host: new URL(endpoint).hostname,
+      },
+    });
+  
+    const signedRequest = await signer.sign(request);
+  
+    const signedHeaders = signedRequest.headers;
+  
+    const response = await axios.get(`${endpoint}${path}`, {
+      headers: signedHeaders,
+    });
+  
+    return response.data;
+  } catch (err) {
+    if (err instanceof AxiosError) {
+      console.log('Axios error data: ', err.response?.data);
+    }
+  }
+}
+
 
 // TODO
 // Check supported Bedrock regions and validate regional support in CDK stack
@@ -38,10 +87,8 @@ export async function checkSemanticCache(
   embedding: number[]
 ) {
   try {
-    // const result = await axios.get(`${collectionEndpoint}`);
-    console.log('collection endpoint from semanticCache.ts:', collectionEndpoint);
-    console.log('index name from semanticCache.ts: ', indexName);
-    return [collectionEndpoint, indexName];
+    const result = await axios.get(`${collectionEndpoint}/_cat/indices?v&expand_wildcards=all`);
+    return result;
   } catch (err) {
     console.log('Test failed:', err);
   }

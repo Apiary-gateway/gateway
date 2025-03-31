@@ -120,47 +120,55 @@ export class AiGatewayStack extends Stack {
     });
 
     // Data access policy for OpenSearch collection
+    // new opensearch.CfnAccessPolicy(this, 'OpenSearchAccessPolicy', {
+    //   name: 'semantic-cache-access-policy',
+    //   type: 'data',
+    //   policy: JSON.stringify([
+    //     {
+    //       Rules: [
+    //         {
+    //           ResourceType: 'collection',
+    //           // Resource: [`${vectorCollection.attrArn}`],
+    //           Resource: [`collection/${vectorCollection.name}`],
+    //           Permission: [
+    //             // // TODO: try locking this down more? i.e. just the permissions below it
+    //             "aoss:*",
+    //             // // lets the Principal list metadata about the collection
+    //             // "aoss:DescribeCollection",
+    //             // "aoss:DescribeCollectionItems",
+    //             // "aoss:DescribeIndex",
+    //             // "aoss:ReadDocument",
+    //             // "aoss:WriteDocument"
+    //           ],
+    //         },
+    //         {
+    //           ResourceType: 'index',
+    //           // Resource: [`arn:aws:aoss:${this.region}:${this.account}:index/${vectorCollection.attrId}/*`],
+    //           Resource: [`index/${vectorCollection.name}/*`],
+    //           // TODO: lock this down more?
+    //           Permission: [
+    //             "aoss:*",
+    //             // "aoss:DescribeCollection",
+    //             // "aoss:DescribeCollectionItems",
+    //             // "aoss:DescribeIndex",
+    //             // "aoss:ReadDocument",
+    //             // "aoss:WriteDocument"
+    //           ]
+    //         }
+    //       ],
+    //       // TODO: try locking this down more - specific Lambda function ARN, user ARNs
+    //       Principal: [
+    //         semanticCacheLambdaRole.roleArn,
+    //         `arn:aws:iam::${Aws.ACCOUNT_ID}:root`, 
+    //       ]
+    //     }
+    //   ])
+    // });
+
     new opensearch.CfnAccessPolicy(this, 'OpenSearchAccessPolicy', {
       name: 'semantic-cache-access-policy',
       type: 'data',
-      policy: JSON.stringify([
-        {
-          Rules: [
-            {
-              ResourceType: 'collection',
-              Resource: [`collection/${vectorCollection.name}`],
-              Permission: [
-                // // TODO: try locking this down more? i.e. just the permissions below it
-                "aoss:*",
-                // // lets the Principal list metadata about the collection
-                // "aoss:DescribeCollection",
-                // "aoss:DescribeCollectionItems",
-                // "aoss:DescribeIndex",
-                // "aoss:ReadDocument",
-                // "aoss:WriteDocument"
-              ],
-            },
-            {
-              ResourceType: 'index',
-              Resource: [`index/${vectorCollection.name}/*`],
-              // TODO: lock this down more?
-              Permission: [
-                "aoss:*",
-                // "aoss:DescribeCollection",
-                // "aoss:DescribeCollectionItems",
-                // "aoss:DescribeIndex",
-                // "aoss:ReadDocument",
-                // "aoss:WriteDocument"
-              ]
-            }
-          ],
-          // TODO: try locking this down more - specific Lambda function ARN, user ARNs
-          Principal: [
-            semanticCacheLambdaRole.roleArn,
-            `arn:aws:iam::${Aws.ACCOUNT_ID}:root`, 
-          ]
-        }
-      ])
+      policy: "[{\"Description\":\"Full access\",\"Rules\":[{\"ResourceType\":\"index\",\"Resource\":[\"index/*/*\"],\"Permission\":[\"aoss:*\"]}, {\"ResourceType\":\"collection\",\"Resource\":[\"collection/semantic-cache\"],\"Permission\":[\"aoss:*\"]}],\"Principal\":[\"arn:aws:iam::313983287632:role/AiGatewayStack-SemanticCacheLambdaRole402D8BF4-a0NZRXBOtiA0\", \"arn:aws:iam::313983287632:root\"]}]"
     });
 
     semanticCacheLambdaRole.addToPolicy(new iam.PolicyStatement({
@@ -178,10 +186,11 @@ export class AiGatewayStack extends Stack {
         // Optional: helpful for debugging
         'aoss:DescribeCollection',
         'aoss:ListCollections',
+        'aoss:APIAccessAll',
       ],
-      // ['aoss:APIAccessAll'],
       // TODO: limit this more to specific resources?
       resources: [
+        `arn:aws:aoss:${this.region}:${this.account}:*`,
         `arn:aws:aoss:${this.region}:${this.account}:collection/semantic-cache`,
         `arn:aws:aoss:${this.region}:${this.account}:index/semantic-cache/*`
       ]
@@ -190,6 +199,11 @@ export class AiGatewayStack extends Stack {
     new CfnOutput(this, 'OpenSearchEndpoint', {
       value: `${vectorCollection.attrCollectionEndpoint}`,
       exportName: 'OpenSearchCollectionEndpoint',
+    });
+
+    new CfnOutput(this, 'OpenSearchCollectionAttrId', {
+      value: `${vectorCollection.attrId}`,
+      exportName: 'OpenSearchCollectionAttrId',
     });
 
     // Secrets Manager for API keys
