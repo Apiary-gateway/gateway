@@ -9,6 +9,7 @@ import {
   aws_logs as logs,
   aws_s3 as s3,
   aws_athena as athena,
+  aws_s3_deployment as s3deploy,
   CfnResource,
   Stack,
   StackProps,
@@ -17,6 +18,7 @@ import {
   SecretValue,
 } from 'aws-cdk-lib';
 import * as cr from 'aws-cdk-lib/custom-resources';
+import * as path from 'path';
 
 export class AiGatewayStack extends Stack {
   constructor(scope: Construct, id: string, props?: StackProps) {
@@ -24,12 +26,11 @@ export class AiGatewayStack extends Stack {
 
     // S3 bucket for logs
     const logBucket = new s3.Bucket(this, 'LLMLogBucket', {
-      removalPolicy: RemovalPolicy.DESTROY, // Bucket will be deleted with stack
-      autoDeleteObjects: true, // Ensures all objects are deleted first
+      removalPolicy: RemovalPolicy.DESTROY,
+      autoDeleteObjects: true,
       lifecycleRules: [{ expiration: Duration.days(90) }],
     });
 
-    // Broadened S3 bucket policy for Athena
     logBucket.addToResourcePolicy(
       new iam.PolicyStatement({
         actions: [
@@ -43,7 +44,7 @@ export class AiGatewayStack extends Stack {
       })
     );
 
-    // Single DynamoDB table
+    // DynamoDB table
     const aiGatewayLogsTable = new dynamodb.Table(this, 'AiGatewayLogsTable', {
       tableName: 'ai-gateway-logs-table',
       partitionKey: { name: 'PK', type: dynamodb.AttributeType.STRING },
@@ -62,7 +63,7 @@ export class AiGatewayStack extends Stack {
       timeToLiveAttribute: 'ttl', // Automatically remove expired items
     });
 
-    // Secrets Manager for API keys
+    // Secrets Manager for API Keys
     const llmApiKeys = new secretsmanager.Secret(this, 'LLMProviderKeys', {
       secretName: 'llm-provider-api-keys',
       secretObjectValue: {
@@ -83,9 +84,8 @@ export class AiGatewayStack extends Stack {
         },
       },
     });
-    athenaWorkgroup.applyRemovalPolicy(RemovalPolicy.RETAIN); // Retain for custom cleanup
+    athenaWorkgroup.applyRemovalPolicy(RemovalPolicy.RETAIN);
 
-    // Custom resource to delete Athena workgroup before bucket
     const athenaCleanup = new cr.AwsCustomResource(
       this,
       'AthenaWorkgroupCleanup',
@@ -105,11 +105,9 @@ export class AiGatewayStack extends Stack {
         removalPolicy: RemovalPolicy.DESTROY,
       }
     );
-
-    // Ensure bucket depends on Athena cleanup to avoid new writes during deletion
     logBucket.node.addDependency(athenaCleanup);
 
-    // Glue Database
+    // Glue Database and Table
     const athenaDatabase = new CfnResource(this, 'AthenaDatabase', {
       type: 'AWS::Glue::Database',
       properties: {
@@ -121,7 +119,6 @@ export class AiGatewayStack extends Stack {
       },
     });
 
-    // Glue Table for Athena
     const athenaTable = new CfnResource(this, 'AIGatewayLogsTable', {
       type: 'AWS::Glue::Table',
       properties: {
@@ -177,12 +174,11 @@ export class AiGatewayStack extends Stack {
         },
       },
     });
-
     athenaTable.addDependency(athenaDatabase);
     athenaDatabase.addDependency(athenaWorkgroup);
     logBucket.grantRead(new iam.ServicePrincipal('athena.amazonaws.com'));
 
-    // Router Lambda function
+    // Router Lambda
     const routerFn = new lambdaNode.NodejsFunction(this, 'RouterFunction', {
       entry: 'lambda/router.ts',
       handler: 'handler',
@@ -202,7 +198,7 @@ export class AiGatewayStack extends Stack {
       },
     });
 
-    // Logs Lambda function
+    // Logs Lambda
     const logsFn = new lambdaNode.NodejsFunction(this, 'LogsFunction', {
       entry: 'lambda/logs.ts',
       handler: 'handler',
@@ -219,7 +215,7 @@ export class AiGatewayStack extends Stack {
       },
     });
 
-    // API Gateway logging setup
+    // API Gateway with CORS
     const apiGatewayLogRole = new iam.Role(this, 'ApiGatewayCloudWatchRole', {
       assumedBy: new iam.ServicePrincipal('apigateway.amazonaws.com'),
       managedPolicies: [
@@ -267,13 +263,11 @@ export class AiGatewayStack extends Stack {
     usagePlan.addApiKey(gatewayKey);
     usagePlan.addApiStage({ stage: api.deploymentStage });
 
-    // Permissions for Router Lambda
+    // Permissions
     aiGatewayCacheTable.grantReadWriteData(routerFn);
     aiGatewayLogsTable.grantReadWriteData(routerFn);
     llmApiKeys.grantRead(routerFn);
     logBucket.grantReadWrite(routerFn);
-
-    // Permissions for Logs Lambda
     aiGatewayLogsTable.grantReadData(logsFn);
     logBucket.grantReadWrite(logsFn);
     logsFn.addToRolePolicy(
@@ -322,15 +316,131 @@ export class AiGatewayStack extends Stack {
       })
     );
 
-    // API routes
+    // API routes with explicit CORS configuration
     const routerIntegration = new apigateway.LambdaIntegration(routerFn);
     const routeResource = api.root.addResource('route');
     routeResource.addMethod('POST', routerIntegration, {
       apiKeyRequired: true,
     });
 
-    const logsIntegration = new apigateway.LambdaIntegration(logsFn);
     const logsResource = api.root.addResource('logs');
-    logsResource.addMethod('GET', logsIntegration, { apiKeyRequired: false });
+
+    // Lambda integration for GET with CORS headers
+    const logsIntegration = new apigateway.LambdaIntegration(logsFn, {
+      proxy: false, // Non-proxy to control response
+      integrationResponses: [
+        {
+          statusCode: '200',
+          responseParameters: {
+            'method.response.header.Access-Control-Allow-Origin': "'*'",
+            'method.response.header.Access-Control-Allow-Headers':
+              "'Content-Type,X-Amz-Date,Authorization,X-Api-Key'",
+          },
+        },
+        {
+          statusCode: '500', // Handle errors
+          selectionPattern: '5\\d{2}',
+          responseParameters: {
+            'method.response.header.Access-Control-Allow-Origin': "'*'",
+            'method.response.header.Access-Control-Allow-Headers':
+              "'Content-Type,X-Amz-Date,Authorization,X-Api-Key'",
+          },
+        },
+      ],
+    });
+
+    // GET method with CORS response
+    logsResource.addMethod('GET', logsIntegration, {
+      apiKeyRequired: false,
+      methodResponses: [
+        {
+          statusCode: '200',
+          responseParameters: {
+            'method.response.header.Access-Control-Allow-Origin': true,
+            'method.response.header.Access-Control-Allow-Headers': true,
+          },
+        },
+        {
+          statusCode: '500',
+          responseParameters: {
+            'method.response.header.Access-Control-Allow-Origin': true,
+            'method.response.header.Access-Control-Allow-Headers': true,
+          },
+        },
+      ],
+    });
+
+    // OPTIONS method for CORS preflight
+    const optionsIntegration = new apigateway.MockIntegration({
+      integrationResponses: [
+        {
+          statusCode: '200',
+          responseParameters: {
+            'method.response.header.Access-Control-Allow-Origin': "'*'",
+            'method.response.header.Access-Control-Allow-Headers':
+              "'Content-Type,X-Amz-Date,Authorization,X-Api-Key'",
+            'method.response.header.Access-Control-Allow-Methods':
+              "'GET,OPTIONS'",
+          },
+        },
+      ],
+      passthroughBehavior: apigateway.PassthroughBehavior.WHEN_NO_MATCH,
+      requestTemplates: {
+        'application/json': '{"statusCode": 200}',
+      },
+    });
+
+    logsResource.addMethod('OPTIONS', optionsIntegration, {
+      methodResponses: [
+        {
+          statusCode: '200',
+          responseParameters: {
+            'method.response.header.Access-Control-Allow-Origin': true,
+            'method.response.header.Access-Control-Allow-Headers': true,
+            'method.response.header.Access-Control-Allow-Methods': true,
+          },
+        },
+      ],
+    });
+
+    // S3 Bucket for Frontend
+    const frontendBucket = new s3.Bucket(this, 'FrontendBucket', {
+      websiteIndexDocument: 'index.html',
+      websiteErrorDocument: 'index.html',
+      removalPolicy: RemovalPolicy.DESTROY,
+      autoDeleteObjects: true,
+      publicReadAccess: true,
+      blockPublicAccess: new s3.BlockPublicAccess({
+        blockPublicAcls: false,
+        ignorePublicAcls: false,
+        blockPublicPolicy: false,
+        restrictPublicBuckets: false,
+      }),
+    });
+
+    frontendBucket.addToResourcePolicy(
+      new iam.PolicyStatement({
+        actions: ['s3:GetObject'],
+        resources: [`${frontendBucket.bucketArn}/*`],
+        principals: [new iam.AnyPrincipal()],
+      })
+    );
+
+    // Define the logs endpoint
+    const logsEndpoint = `${api.url}logs`;
+
+    // Inject the endpoint via config.js
+    const configJsContent = `
+      window.LOGS_ENDPOINT = ${JSON.stringify(logsEndpoint)};
+    `;
+
+    // Deploy frontend
+    new s3deploy.BucketDeployment(this, 'DeployFrontend', {
+      sources: [
+        s3deploy.Source.asset(path.join(__dirname, '..', 'frontend', 'build')),
+        s3deploy.Source.data('config.js', configJsContent),
+      ],
+      destinationBucket: frontendBucket,
+    });
   }
 }
