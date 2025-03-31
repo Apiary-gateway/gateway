@@ -1,6 +1,7 @@
 import { BedrockRuntimeClient, InvokeModelCommand } from '@aws-sdk/client-bedrock-runtime';
 import axios from 'axios';
 import { RequestPayload } from '../router';
+import { CompletionResponse } from 'token.js';
 
 // TODO
 // Check supported Bedrock regions and validate regional support in CDK stack
@@ -18,7 +19,7 @@ const indexName = process.env.OPENSEARCH_INDEX;
 const embeddingModelId = 'amazon.titan-embed-text-v2:0';
 const similarityThreshold = 0.9;
 
-async function getEmbedding(prompt: string): Promise<number[]> {
+export async function getEmbedding(prompt: string): Promise<number[]> {
   const command = new InvokeModelCommand({
     modelId: embeddingModelId,
     contentType: 'application/json',
@@ -36,7 +37,7 @@ export async function checkSemanticCache(
   requestBody: RequestPayload, 
   embedding: number[]
 ) {
-  let { userId, provider, model, prompt } = requestBody;
+  let { userId, provider, model } = requestBody;
   userId = userId ? userId : 'global';
 
   // KNN is K-nearest neighbors, where K is number of nearest neighbors to get
@@ -61,45 +62,42 @@ export async function checkSemanticCache(
     headers: { 'Content-Type': 'application/json' }
   });
 
-  const topHit = response.data.hits?.hits?.[0];
-  const similarityScore = topHit?._score;
+  return response.data;
 
-  return similarityScore && similarityScore >= similarityThreshold ?
-    topHit._source.llmResponse : null;
+  // const topHit = response.data.hits?.hits?.[0];
+  // const similarityScore = topHit?._score;
+
+  // return similarityScore && similarityScore >= similarityThreshold ?
+  //   topHit._source.llmResponse : null;
 }
 
 export async function addToSemanticCache(
   requestBody: RequestPayload, 
   embedding: number[], 
-  llmResponse: string
+  llmResponse: { text: string, usage: CompletionResponse['usage'] }
 ) {
-  let { userId, provider, model, prompt } = requestBody;
-  userId = userId ? userId : 'global';
+  // let { userId, provider, model } = requestBody;
+  // userId = userId ? userId : 'global';
   
-  await axios.post(`${collectionEndpoint}/${indexName}/_doc`, {
-    userId,
-    provider,
-    model,
-    requestText: prompt,
-    embedding,
-    llmResponse,
-    timestamp: new Date().toISOString()
-  }, {
-    headers: { 'Content-Type': 'application/json' }
-  });
+  // const response = await axios.post(`${collectionEndpoint}/${indexName}/_doc`, {
+  //   userId,
+  //   provider,
+  //   model,
+  //   // requestText: prompt,
+  //   embedding,
+  //   llmResponse,
+  //   timestamp: new Date().toISOString()
+  // }, {
+  //   headers: { 'Content-Type': 'application/json' }
+  // });
+
+  // // for debugging
+  // console.log('successfully added to semantic cache: ', response.data);
+
+  try {
+    const result = await axios.get(`${collectionEndpoint}`);
+    console.log('OpenSearch domain accessible:', result.data);
+  } catch (err) {
+    console.log('Test failed:', err);
+  }
 }
-
-// export const handler = async (event: any) => {
-//   const { prompt, userId, provider, model } = JSON.parse(event.body);
-//   const embedding = await getEmbedding(prompt);
-//   const cached = await searchCache(userId, provider, model, embedding);
-
-//   if (cached) return { statusCode: 200, body: JSON.stringify({ cached: true, response: cached }) };
-
-//   // TODO: Replace with actual LLM call
-//   const llmResponse = `This is a simulated response for: ${prompt}`;
-
-//   await cacheResponse(userId, provider, model, prompt, embedding, llmResponse);
-
-//   return { statusCode: 200, body: JSON.stringify({ cached: false, response: llmResponse }) };
-// };

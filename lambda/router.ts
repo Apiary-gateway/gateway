@@ -1,3 +1,28 @@
+// all of this is just to test OpenSearch access from Lambda
+// import {
+//   OpenSearchServerlessClient,
+//   ListCollectionsCommand
+// } from '@aws-sdk/client-opensearchserverless';
+
+// const client = new OpenSearchServerlessClient({ region: process.env.AWS_REGION });
+
+// export const handler = async () => {
+//   try {
+//     const result = await client.send(new ListCollectionsCommand({}));
+//     console.log('OpenSearch collections:', JSON.stringify(result, null, 2));
+//     return {
+//       statusCode: 200,
+//       body: JSON.stringify(result),
+//     };
+//   } catch (err: any) {
+//     console.error('Error describing OpenSearch collections:', err);
+//     return {
+//       statusCode: 500,
+//       body: JSON.stringify({ message: err.message || err }),
+//     };
+//   }
+// };
+
 import { z } from 'zod';
 import callLLM from './util/callLLM';
 import { saveMessage, getMessageHistory } from './util/getAndSaveMessages';
@@ -9,6 +34,8 @@ import {
   VALID_PROVIDERS,
 } from './util/logger';
 import { addToSimpleCache, checkSimpleCache } from './util/simpleCache';
+import { addToSemanticCache, checkSemanticCache, getEmbedding } from './util/semanticCache';
+import { parse } from 'path';
 
 const RequestSchema = z.object({
   prompt: z.string().min(1),
@@ -89,13 +116,13 @@ export const handler = async (event: any) => {
 
     // check for response in simple cache
     // Mar 29 - this version will not include provider in response if provider not specified
-    const simpleCachedResponse = await checkSimpleCache(parsed.data);
-    if (simpleCachedResponse) {
+    const simpleCacheResponse = await checkSimpleCache(parsed.data);
+    if (simpleCacheResponse) {
       return {
         statusCode: 200,
         body: JSON.stringify({
           provider,
-          simpleCachedResponse,
+          simpleCacheResponse,
         }),
       };
     }
@@ -103,6 +130,11 @@ export const handler = async (event: any) => {
     if (!provider) {
       provider = Math.random() < 0.5 ? 'openai' : 'anthropic';
     }
+
+    const requestEmbedding = await getEmbedding(prompt);
+    // const semanticCacheResponse = await checkSemanticCache(parsed.data, requestEmbedding);
+    // console.log('semantic cache response: ', semanticCacheResponse);
+    
 
     const response = await callLLM([], prompt, provider, model);
 
@@ -119,6 +151,7 @@ export const handler = async (event: any) => {
 
     // don't await - no need to wait here
     addToSimpleCache(parsed.data, response);
+    await addToSemanticCache(parsed.data, requestEmbedding, response);
 
     return {
       statusCode: 200,

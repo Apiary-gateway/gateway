@@ -33,6 +33,14 @@ This prototype:
 
     * After updating your keys, redeploy your stack to make sure all changes take effect(?)
 
-* Implements simple caching. You can include the header `Cache-Control: no-cache`
-with your request to bypass the cache.
+* Implements simple caching. 
+
+* ~~Implements semantic caching. After deploying the CDK stack, go to the AWS
+OpenSearch console. In the left-hand navigation bar under "Serverless", click on
+"Collections", then click on the 'semantic-cache' collection. Click on the "Indexes"
+tab, then "Create Index", "JSON". Enter semantic-cache-index for the "Vector index 
+name" field, and copy/paste the following for the JSON of the index.
+(I'm struggling to automate this process right now!):~~ -> trying to figure this out...
+
+
 

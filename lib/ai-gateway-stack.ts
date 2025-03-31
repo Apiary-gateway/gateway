@@ -1,5 +1,6 @@
 import { Construct } from 'constructs';
 import {
+  Aws,
   aws_lambda as lambda,
   aws_lambda_nodejs as lambdaNode,
   aws_apigateway as apigateway,
@@ -83,6 +84,24 @@ export class AiGatewayStack extends Stack {
       })
     });
 
+    // TODO - make this more secure
+    // allow public network access to OpenSearch
+    const accessPolicy = new opensearch.CfnSecurityPolicy(this, 'PublicNetworkPolicy', {
+      name: 'public-network-policy',
+      type: 'network',
+      policy: JSON.stringify([
+        {
+          Rules: [
+            {
+              ResourceType: 'collection',
+              Resource: ['collection/semantic-cache'],
+            },
+          ],
+          AllowFromPublic: true,
+        },
+      ]),
+    });
+
     // OpenSearch Serverless collection for semantic cache
     const vectorCollection = new opensearch.CfnCollection(this, 'SemanticCacheCollection', {
       name: 'semantic-cache',
@@ -90,6 +109,7 @@ export class AiGatewayStack extends Stack {
     });
 
     vectorCollection.node.addDependency(encryptionPolicy);
+    vectorCollection.node.addDependency(accessPolicy);
 
     // IAM role for Lambda to invoke Bedrock models and access OpenSearch API
     const semanticCacheLambdaRole = new iam.Role(this, 'SemanticCacheLambdaRole', {
@@ -99,7 +119,7 @@ export class AiGatewayStack extends Stack {
       ]
     });
 
-    // Network access policy for OpenSearch collection (public access, not VPC)
+    // Data access policy for OpenSearch collection
     new opensearch.CfnAccessPolicy(this, 'OpenSearchAccessPolicy', {
       name: 'semantic-cache-access-policy',
       type: 'data',
@@ -110,17 +130,35 @@ export class AiGatewayStack extends Stack {
               ResourceType: 'collection',
               Resource: [`collection/${vectorCollection.name}`],
               Permission: [
-                // TODO: try locking this down more? i.e. just the permissions below it
-                "aoss:*"
+                // // TODO: try locking this down more? i.e. just the permissions below it
+                "aoss:*",
                 // // lets the Principal list metadata about the collection
+                // "aoss:DescribeCollection",
                 // "aoss:DescribeCollectionItems",
+                // "aoss:DescribeIndex",
                 // "aoss:ReadDocument",
                 // "aoss:WriteDocument"
               ],
+            },
+            {
+              ResourceType: 'index',
+              Resource: [`index/${vectorCollection.name}/*`],
+              // TODO: lock this down more?
+              Permission: [
+                "aoss:*",
+                // "aoss:DescribeCollection",
+                // "aoss:DescribeCollectionItems",
+                // "aoss:DescribeIndex",
+                // "aoss:ReadDocument",
+                // "aoss:WriteDocument"
+              ]
             }
           ],
-          // TODO: try locking this down more - specific Lambda function ARN and/or other roles?
-          Principal: [`${semanticCacheLambdaRole.roleArn}`]
+          // TODO: try locking this down more - specific Lambda function ARN, user ARNs
+          Principal: [
+            semanticCacheLambdaRole.roleArn,
+            `arn:aws:iam::${Aws.ACCOUNT_ID}:root`, 
+          ]
         }
       ])
     });
@@ -133,9 +171,20 @@ export class AiGatewayStack extends Stack {
 
     semanticCacheLambdaRole.addToPolicy(new iam.PolicyStatement({
       // full access to AWS OpenSearch Serverless API
-      actions: ['aoss:APIAccessAll'],
+      actions: [
+        'aoss:ReadDocument',
+        'aoss:WriteDocument',
+        'aoss:DescribeCollectionItems',
+        // Optional: helpful for debugging
+        'aoss:DescribeCollection',
+        'aoss:ListCollections',
+      ],
+      // ['aoss:APIAccessAll'],
       // TODO: limit this more to specific resources?
-      resources: ['*']
+      resources: [
+        `arn:aws:aoss:${this.region}:${this.account}:collection/semantic-cache`,
+        `arn:aws:aoss:${this.region}:${this.account}:index/semantic-cache/*`
+      ]
     }));
     
     new CfnOutput(this, 'OpenSearchEndpoint', {
