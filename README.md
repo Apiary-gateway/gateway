@@ -29,7 +29,10 @@ This prototype:
 
   * To use the API key when making requests to the API Gateway: include the request header "x-api-key: <YOUR_GENERATED_API_KEY>"
 
-* Includes placeholders for your LLM provider API keys. To provide/update your actual keys, execute from the command line: aws secretsmanager update-secret --secret-id llm-provider-api-keys --secret-string '{"ANTHROPIC_API_KEY": "new-anthropic-key", "GEMINI_API_KEY": "new-gemini-key", "OPENAI_API_KEY": "new-api-key" }'
+* Includes placeholders for your LLM provider API keys. To provide/update your actual keys, execute from the command line: aws secretsmanager update-secret --secret-id llm-provider-api-keys --secret-string '{"ANTHROPIC_API_KEY": "new-anthropic-key", "GEMINI_API_KEY": "new-gemini-key", "OPENAI_API_KEY": "new-api-key"}'
 
     * After updating your keys, redeploy your stack to make sure all changes take effect(?)
+
+* Implements simple caching. You can include the header `Cache-Control: no-cache`
+with your request to bypass the cache.
 
