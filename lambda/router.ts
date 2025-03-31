@@ -133,8 +133,12 @@ export const handler = async (event: any) => {
 
     const requestEmbedding = await getEmbedding(prompt);
     // const semanticCacheResponse = await checkSemanticCache(parsed.data, requestEmbedding);
-    // console.log('semantic cache response: ', semanticCacheResponse);
-    
+    const semanticCacheResponse = await checkSemanticCache(parsed.data, requestEmbedding);
+    // if (semanticCacheResponse && semanticCacheResponse[0]) {
+    //   const [endpoint, index] = semanticCacheResponse;
+    //   console.log('collection endpoint from router:', endpoint);
+    //   console.log('index name from router: ', index);
+    // } 
 
     const response = await callLLM([], prompt, provider, model);
 
@@ -151,7 +155,7 @@ export const handler = async (event: any) => {
 
     // don't await - no need to wait here
     addToSimpleCache(parsed.data, response);
-    await addToSemanticCache(parsed.data, requestEmbedding, response);
+    // addToSemanticCache(parsed.data, requestEmbedding, response);
 
     return {
       statusCode: 200,

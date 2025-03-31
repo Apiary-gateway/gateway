@@ -188,7 +188,7 @@ export class AiGatewayStack extends Stack {
     }));
     
     new CfnOutput(this, 'OpenSearchEndpoint', {
-      value: `https://${vectorCollection.attrCollectionEndpoint}`, // or collection.attrDashboardEndpoint
+      value: `${vectorCollection.attrCollectionEndpoint}`,
       exportName: 'OpenSearchCollectionEndpoint',
     });
 

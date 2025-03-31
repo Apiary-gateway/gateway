@@ -37,32 +37,41 @@ export async function checkSemanticCache(
   requestBody: RequestPayload, 
   embedding: number[]
 ) {
-  let { userId, provider, model } = requestBody;
-  userId = userId ? userId : 'global';
+  try {
+    // const result = await axios.get(`${collectionEndpoint}`);
+    console.log('collection endpoint from semanticCache.ts:', collectionEndpoint);
+    console.log('index name from semanticCache.ts: ', indexName);
+    return [collectionEndpoint, indexName];
+  } catch (err) {
+    console.log('Test failed:', err);
+  }
+  
+  // let { userId, provider, model } = requestBody;
+  // userId = userId ? userId : 'global';
 
-  // KNN is K-nearest neighbors, where K is number of nearest neighbors to get
-  const knnQuery = {
-    knn: {
-      field: 'embedding',
-      k: 1,
-      vector: embedding,
-      filter: {
-        bool: {
-          must: [
-            { term: { userId } },
-            { term: { provider } },
-            { term: { model } }
-          ]
-        }
-      }
-    }
-  };
+  // // KNN is K-nearest neighbors, where K is number of nearest neighbors to get
+  // const knnQuery = {
+  //   knn: {
+  //     field: 'embedding',
+  //     k: 1,
+  //     vector: embedding,
+  //     filter: {
+  //       bool: {
+  //         must: [
+  //           { term: { userId } },
+  //           { term: { provider } },
+  //           { term: { model } }
+  //         ]
+  //       }
+  //     }
+  //   }
+  // };
 
-  const response = await axios.post(`${collectionEndpoint}/${indexName}/_search`, knnQuery, {
-    headers: { 'Content-Type': 'application/json' }
-  });
+  // const response = await axios.post(`${collectionEndpoint}/${indexName}/_search`, knnQuery, {
+  //   headers: { 'Content-Type': 'application/json' }
+  // });
 
-  return response.data;
+  // return response.data;
 
   // const topHit = response.data.hits?.hits?.[0];
   // const similarityScore = topHit?._score;
@@ -93,11 +102,4 @@ export async function addToSemanticCache(
 
   // // for debugging
   // console.log('successfully added to semantic cache: ', response.data);
-
-  try {
-    const result = await axios.get(`${collectionEndpoint}`);
-    console.log('OpenSearch domain accessible:', result.data);
-  } catch (err) {
-    console.log('Test failed:', err);
-  }
 }
