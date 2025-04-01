@@ -1,28 +1,3 @@
-// all of this is just to test OpenSearch access from Lambda
-// import {
-//   OpenSearchServerlessClient,
-//   ListCollectionsCommand
-// } from '@aws-sdk/client-opensearchserverless';
-
-// const client = new OpenSearchServerlessClient({ region: process.env.AWS_REGION });
-
-// export const handler = async () => {
-//   try {
-//     const result = await client.send(new ListCollectionsCommand({}));
-//     console.log('OpenSearch collections:', JSON.stringify(result, null, 2));
-//     return {
-//       statusCode: 200,
-//       body: JSON.stringify(result),
-//     };
-//   } catch (err: any) {
-//     console.error('Error describing OpenSearch collections:', err);
-//     return {
-//       statusCode: 500,
-//       body: JSON.stringify({ message: err.message || err }),
-//     };
-//   }
-// };
-
 import { validateRequest } from "./util/validateRequest";
 import { extractRequestData, extractRequestMetadata } from "./util/extractRequestData";
 import { getMessageHistory, saveMessages } from "./util/getAndSaveMessages";
@@ -66,7 +41,7 @@ export const handler = async (event: any) => {
         } 
 
         const payload = parsed.data;
-        const { threadID, prompt, provider, model } = extractRequestData(payload);
+        const { threadID, prompt, provider, model, userId } = extractRequestData(payload);
         const metadata = extractRequestMetadata(event, payload);
         
         logData.model = model as AllModels;
@@ -96,15 +71,28 @@ export const handler = async (event: any) => {
             }
         }
 
-        const simpleCacheResponse = await checkSimpleCache(parsed.data);
+        const simpleCacheResponse = await checkSimpleCache(prompt, userId, provider, model);
         if (simpleCacheResponse) {
-            return {
-                statusCode: 200,
-                body: JSON.stringify({
-                    provider,
-                    simpleCacheResponse,
-                }),
-            };
+          return {
+              statusCode: 200,
+              body: JSON.stringify({
+                  provider,
+                  simpleCacheResponse,
+              }),
+          };
+        }
+
+        const requestEmbedding = await getEmbedding(prompt);
+        const semanticCacheResponse = 
+          await checkSemanticCache(requestEmbedding, userId, provider, model);
+        if (semanticCacheResponse) {
+          return {
+            statusCode: 200,
+            body: JSON.stringify({
+              provider,
+              semanticCacheResponse,
+            }),
+        };
         }
 
         const history = await getMessageHistory(threadID);
@@ -118,8 +106,8 @@ export const handler = async (event: any) => {
         });
 
         // don't await - no need to wait here
-        addToSimpleCache(parsed.data, response);
-    addToSemanticCache(parsed.data, requestEmbedding, response);
+        addToSimpleCache(prompt, response.text, userId, provider, model);
+        addToSemanticCache(requestEmbedding, prompt, response.text, userId, provider, model);
 
         return {
             statusCode: 200,

@@ -9,7 +9,8 @@ export const RequestSchema = z
     prompt: z.string().min(1),
     threadID: z.string().optional(),
     provider: z.enum(providers).optional(),
-    model: z.string().optional(), 
+    model: z.string().optional(),
+    userId: z.string().optional(),
     userType: z.string().optional(),
     region: z.string().optional(),
   })

@@ -1,6 +1,5 @@
 import { BedrockRuntimeClient, InvokeModelCommand } from '@aws-sdk/client-bedrock-runtime';
 import axios, { AxiosError } from 'axios';
-import { RequestPayload } from '../router';
 import { CompletionResponse } from 'token.js';
 import { HttpRequest } from '@aws-sdk/protocol-http';
 import { SignatureV4 } from '@aws-sdk/signature-v4';
@@ -40,11 +39,12 @@ export async function getEmbedding(prompt: string): Promise<number[]> {
 }
 
 export async function checkSemanticCache(
-  requestBody: RequestPayload, 
-  requestEmbedding: number[]
+  requestEmbedding: number[],
+  userId?: string,
+  provider?: string,
+  model?: string
 ) { 
-  let { userId, provider, model } = requestBody;
-  userId = userId ? userId : 'global';
+  [ userId, provider, model ] = getFilters(userId, provider, model);
 
   // KNN is K-nearest neighbors, where K is number of nearest neighbors to get  
   const knnQuery = {
@@ -78,13 +78,15 @@ export async function checkSemanticCache(
 }
 
 export async function addToSemanticCache(
-  requestBody: RequestPayload, 
-  embedding: number[], 
-  llmResponse: { text: string, usage: CompletionResponse['usage'] }
+  embedding: number[],
+  prompt: string, 
+  llmResponse: string,
+  userId?: string,
+  provider?: string,
+  model?: string
 ) {
   try {
-    let { userId, provider, model, prompt } = requestBody;
-    userId = userId ? userId : 'global';
+    [ userId, provider, model ] = getFilters(userId, provider, model);
     
     const response = await signedPost(`/${indexName}/_doc`, {
       userId,
@@ -92,7 +94,7 @@ export async function addToSemanticCache(
       model,
       embedding,
       requestText: prompt,
-      llmResponse: JSON.stringify(llmResponse),
+      llmResponse,
       timestamp: new Date().toISOString()
     });
 
@@ -104,6 +106,18 @@ export async function addToSemanticCache(
       console.log('error in addToSemanticCache: ', err);
     }
   }
+}
+
+function getFilters(  
+  userId?: string,
+  provider?: string,
+  model?: string
+) {
+  userId = userId ? userId : 'global';
+  provider = provider ? provider : '';
+  model = model ? model : '';
+
+  return [userId, provider, model];
 }
 
 async function signedPost(path: string, body: object) {

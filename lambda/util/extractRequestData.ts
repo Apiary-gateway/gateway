@@ -1,3 +1,4 @@
+import { parse } from 'path';
 import { RequestPayload } from './schemas/requestSchema';
 import { ParsedRequestData, RequestMetadata, SupportedLLMs } from './types';
 
@@ -7,6 +8,7 @@ export function extractRequestData(parsed: RequestPayload): ParsedRequestData {
     prompt: parsed.prompt,
     provider: parsed.provider as SupportedLLMs | undefined,
     model: parsed.model,
+    userId: parsed.userId || undefined,
   };
 }
 
