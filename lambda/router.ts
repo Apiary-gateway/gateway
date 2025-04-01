@@ -1,3 +1,28 @@
+// all of this is just to test OpenSearch access from Lambda
+// import {
+//   OpenSearchServerlessClient,
+//   ListCollectionsCommand
+// } from '@aws-sdk/client-opensearchserverless';
+
+// const client = new OpenSearchServerlessClient({ region: process.env.AWS_REGION });
+
+// export const handler = async () => {
+//   try {
+//     const result = await client.send(new ListCollectionsCommand({}));
+//     console.log('OpenSearch collections:', JSON.stringify(result, null, 2));
+//     return {
+//       statusCode: 200,
+//       body: JSON.stringify(result),
+//     };
+//   } catch (err: any) {
+//     console.error('Error describing OpenSearch collections:', err);
+//     return {
+//       statusCode: 500,
+//       body: JSON.stringify({ message: err.message || err }),
+//     };
+//   }
+// };
+
 import { validateRequest } from "./util/validateRequest";
 import { extractRequestData, extractRequestMetadata } from "./util/extractRequestData";
 import { getMessageHistory, saveMessages } from "./util/getAndSaveMessages";
@@ -9,7 +34,9 @@ import {
     logFailedRequest,
     CommonLogData,
 } from './util/logger';
-import { addToSimpleCache, checkSimpleCache } from './util/cache';
+import { addToSimpleCache, checkSimpleCache } from './util/simpleCache';
+import { addToSemanticCache, checkSemanticCache, getEmbedding } from './util/semanticCache';
+import { parse } from 'path';
 
 export const handler = async (event: any) => {
     const logData: CommonLogData = {
@@ -69,13 +96,13 @@ export const handler = async (event: any) => {
             }
         }
 
-        const simpleCachedResponse = await checkSimpleCache(parsed.data);
-        if (simpleCachedResponse) {
+        const simpleCacheResponse = await checkSimpleCache(parsed.data);
+        if (simpleCacheResponse) {
             return {
                 statusCode: 200,
                 body: JSON.stringify({
                     provider,
-                    simpleCachedResponse,
+                    simpleCacheResponse,
                 }),
             };
         }
@@ -92,12 +119,13 @@ export const handler = async (event: any) => {
 
         // don't await - no need to wait here
         addToSimpleCache(parsed.data, response);
+    addToSemanticCache(parsed.data, requestEmbedding, response);
 
         return {
             statusCode: 200,
             body: JSON.stringify({
                 threadID,
-                response,
+                response
             }),
         };
     } catch (error) {
