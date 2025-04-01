@@ -60,4 +60,5 @@ export type ParsedRequestData = {
     prompt: string;
     provider?: SupportedLLMs;
     model?: string;
+    userId?: string;
 }
