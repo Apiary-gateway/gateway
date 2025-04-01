@@ -26,6 +26,8 @@ const UsageSchema = z.object({
 const RawResponseSchema = z.object({
   text: z.string(),
   usage: UsageSchema,
+  provider: z.string(),
+  model: z.string(),
 });
 
 // Schema for `body` inside `raw_request`
