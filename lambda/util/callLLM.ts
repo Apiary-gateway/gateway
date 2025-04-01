@@ -1,8 +1,7 @@
-import { InternalMessage } from './types';
 import { SYSTEM_PROMPT } from './constants';
 import { TokenJS } from 'token.js';
 import { MODELS } from './constants';
-import { SupportedLLMs, ModelMap } from './types';
+import { CallLLMArgs } from './types';
 import type { CompletionResponse } from 'token.js';
 import { SecretsManagerClient, GetSecretValueCommand } from "@aws-sdk/client-secrets-manager";
 
@@ -24,11 +23,12 @@ async function loadApiKeys() {
     return;
 }
 
-export default async function callLLM<K extends SupportedLLMs>(history: InternalMessage[], prompt: string, provider: K, model?: ModelMap[K]):
-    Promise<{ text: string, usage: CompletionResponse['usage'] }> {
+export default async function callLLM({ history, prompt, provider, model }: CallLLMArgs):
+    Promise<{ text: string, usage: CompletionResponse['usage'], provider: string, model: string }> {
+
     try {
         await loadApiKeys();
-        
+
         if (cachedApiKeys) {
             for (const [key, value] of Object.entries(cachedApiKeys)) {
                 process.env[key] = value;
@@ -36,10 +36,6 @@ export default async function callLLM<K extends SupportedLLMs>(history: Internal
         }
 
         const tokenjs = new TokenJS();
-
-        if (!MODELS[provider].includes(model || MODELS[provider][0])) {
-            throw new Error(`Invalid model "${model}" for provider "${provider}"`);
-        }
 
         const response = await tokenjs.chat.completions.create({
             provider: provider as any,
@@ -59,6 +55,8 @@ export default async function callLLM<K extends SupportedLLMs>(history: Internal
         return {
             text: response.choices?.[0]?.message?.content || '',
             usage: response.usage,
+            provider: provider,
+            model: model
         }
     } catch (error) {
         console.error(`Error in ${provider} call:`, error);

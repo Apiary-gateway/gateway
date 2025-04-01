@@ -15,8 +15,6 @@ const ATHENA_WORKGROUP = process.env.ATHENA_WORKGROUP || 'llm_logs_workgroup';
 const ATHENA_DATABASE = 'ai_gateway_logs_db';
 const PAGE_SIZE = 15;
 
-const getTodayDate = (): string => new Date().toISOString().split('T')[0];
-
 const mapDynamoItem = (item: any) => ({
   id: item.id?.S,
   thread_ts: item.thread_ts?.S,
@@ -66,7 +64,7 @@ export const handler = async (
     let responseNextToken: string | null = null;
 
     if (older) {
-      console.log('Querying Athena with pagination');
+      console.log('Querying Athena with pagination (all logs)');
       const athenaQuery = `
         SELECT id, timestamp, status, provider, model, latency
         FROM "ai_gateway_logs"
@@ -96,6 +94,10 @@ export const handler = async (
         );
         queryState = queryExecutionResult.QueryExecution?.Status?.State;
         console.log('Athena query state:', queryState);
+        console.log(
+          'Query execution details:',
+          JSON.stringify(queryExecutionResult.QueryExecution)
+        );
       } while (queryState === 'RUNNING' || queryState === 'QUEUED');
 
       if (queryState === 'FAILED') {
@@ -119,28 +121,33 @@ export const handler = async (
       const queryResults = await athenaClient.send(
         new GetQueryResultsCommand(getQueryResultsInput)
       );
-      console.log('Raw Athena results:', JSON.stringify(queryResults));
+      console.log('Raw Athena results:', JSON.stringify(queryResults, null, 2));
 
       const rows = queryResults.ResultSet?.Rows || [];
+      console.log('Raw rows count:', rows.length);
+      console.log('Raw rows:', JSON.stringify(rows, null, 2));
+
+      // Simplify: Skip header only on first page, log before mapping
       logs = (!nextToken && rows.length > 0 ? rows.slice(1) : rows).map(
         mapAthenaRow
       );
-      console.log('Mapped logs from Athena:', { count: logs.length });
+      console.log('Mapped logs from Athena:', {
+        count: logs.length,
+        logs: JSON.stringify(logs),
+      });
 
       responseNextToken = queryResults.NextToken || null;
       console.log('Athena NextToken:', responseNextToken);
     } else {
-      console.log('Querying DynamoDB with pagination');
-      const today = getTodayDate();
+      console.log('Querying DynamoDB with pagination (all logs)');
       const clientLastKey = nextToken
         ? JSON.parse(decodeURIComponent(nextToken))
         : undefined;
       const dynamoQuery = new QueryCommand({
         TableName: LOG_TABLE_NAME,
-        KeyConditionExpression: 'PK = :pk AND begins_with(SK, :sk)',
+        KeyConditionExpression: 'PK = :pk',
         ExpressionAttributeValues: {
           ':pk': { S: 'LOG' },
-          ':sk': { S: `TS#${today}` },
         },
         Limit: PAGE_SIZE,
         ExclusiveStartKey: clientLastKey,
