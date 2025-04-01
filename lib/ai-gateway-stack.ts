@@ -54,14 +54,18 @@ export class AiGatewayStack extends Stack {
     });
 
     // Caching DynamoDB table
-    const aiGatewayCacheTable = new dynamodb.Table(this, 'AiGatewayCacheTable', {
-      tableName: 'ai-gateway-cache-table',
-      partitionKey: { name: 'userId', type: dynamodb.AttributeType.STRING },
-      sortKey: { name: 'cacheKey', type: dynamodb.AttributeType.STRING },
-      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
-      removalPolicy: RemovalPolicy.DESTROY,
-      timeToLiveAttribute: 'ttl', // Automatically remove expired items
-    });
+    const aiGatewayCacheTable = new dynamodb.Table(
+      this,
+      'AiGatewayCacheTable',
+      {
+        tableName: 'ai-gateway-cache-table',
+        partitionKey: { name: 'userId', type: dynamodb.AttributeType.STRING },
+        sortKey: { name: 'cacheKey', type: dynamodb.AttributeType.STRING },
+        billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+        removalPolicy: RemovalPolicy.DESTROY,
+        timeToLiveAttribute: 'ttl', // Automatically remove expired items
+      }
+    );
 
     // Secrets Manager for API Keys
     const llmApiKeys = new secretsmanager.Secret(this, 'LLMProviderKeys', {
@@ -434,10 +438,12 @@ export class AiGatewayStack extends Stack {
       window.LOGS_ENDPOINT = ${JSON.stringify(logsEndpoint)};
     `;
 
-    // Deploy frontend
+    // Deploy frontend from /frontend-ui/dist
     new s3deploy.BucketDeployment(this, 'DeployFrontend', {
       sources: [
-        s3deploy.Source.asset(path.join(__dirname, '..', 'frontend', 'build')),
+        s3deploy.Source.asset(
+          path.join(__dirname, '..', 'frontend-ui', 'dist')
+        ), // Updated path
         s3deploy.Source.data('config.js', configJsContent),
       ],
       destinationBucket: frontendBucket,
