@@ -2,7 +2,7 @@ import { RoutingConfig } from './types';
 
 export const routingConfig: RoutingConfig = {
   fallbackModel: { provider: 'anthropic', model: 'claude-3-5-haiku-20241022' },
-  fallbackOnStatus: [500, 503, 429, 401],
+  fallbackOnStatus: [500, 503, 429, 401, 403],
   conditions: [
     {
       query: (meta) => meta.userType === 'pro',

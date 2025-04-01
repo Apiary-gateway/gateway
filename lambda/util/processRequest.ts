@@ -42,7 +42,6 @@ export async function processRequest(event: any) {
         statusCode: 200,
         body: JSON.stringify({
             threadID,
-            provider,
             response,
         }),
     };

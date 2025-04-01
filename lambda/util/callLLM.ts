@@ -24,7 +24,7 @@ async function loadApiKeys() {
 }
 
 export default async function callLLM({ history, prompt, provider, model }: CallLLMArgs):
-    Promise<{ text: string, usage: CompletionResponse['usage'] }> {
+    Promise<{ text: string, usage: CompletionResponse['usage'], provider: string, model: string }> {
 
     try {
         await loadApiKeys();
@@ -55,6 +55,8 @@ export default async function callLLM({ history, prompt, provider, model }: Call
         return {
             text: response.choices?.[0]?.message?.content || '',
             usage: response.usage,
+            provider: provider,
+            model: model
         }
     } catch (error) {
         console.error(`Error in ${provider} call:`, error);

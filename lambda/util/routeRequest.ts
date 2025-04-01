@@ -4,20 +4,22 @@ import callLLM from './callLLM';
 import { CompletionResponse } from 'token.js';
 import { getErrorStatusCode } from './errorHandling';
 import { FALLBACK_STATUS_CODES } from './constants';
+import { MODELS } from './constants';
 
 
 export async function routeRequest({ history, prompt, provider, model, metadata }: RouteRequestArgs):
 Promise<{ text: string, usage: CompletionResponse['usage'] }> {
     const conditions = routingConfig.conditions || [];
 
-    if (provider && model) {
+    if (provider) {
+      model = model || MODELS[provider][0]
       return await routeToSpecified({ history, prompt, provider, model })
     }
 
     if (conditions.length > 0 && metadata) {
       for (const cond of conditions) {
 
-        if (cond.query(metadata)) {// fulfills condition, call load balance
+        if (cond.query(metadata)) { // fulfills condition, call load balance
           try {
             const selectedModel = weightedPick(cond.loadBalance);
             return await callLLM({ 
@@ -44,6 +46,7 @@ async function handleRoutingError(
   condition?: RouteRequestArgs['condition']
 ) {
   const statusCode = getErrorStatusCode(error);
+  console.log('statusCode:', statusCode);
 
   const fallbackStatuses = routingConfig.fallbackOnStatus || FALLBACK_STATUS_CODES;
   if (statusCode && fallbackStatuses.includes(statusCode)) {
@@ -66,12 +69,14 @@ async function routeToDefault({ history, prompt, condition }: RouteRequestArgs) 
 async function routeToFallback({ history, prompt, condition }: RouteRequestArgs) {
   const fallbackModel = condition?.fallbackModel || routingConfig.fallbackModel;
 
-  return await callLLM({ 
+  const result = await callLLM({ 
       history, 
       prompt, 
       provider: fallbackModel.provider, 
       model: fallbackModel.model 
   });
+
+  return result;
 }
 
 async function routeToSpecified({ history, prompt, provider, model }: CallLLMArgs) {

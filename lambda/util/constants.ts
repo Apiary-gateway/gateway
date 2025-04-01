@@ -6,7 +6,7 @@ export const MODELS = {
     gemini: ['gemini-1.5-pro', 'gemini-2.0-flash-001'] as const,
 } as const;
 
-export const FALLBACK_STATUS_CODES: number[] = [500, 429, 503];
+export const FALLBACK_STATUS_CODES: number[] = [500, 429, 503, 401, 403];
 
 // status codes
 // 401 is Authentication (missing API key)
