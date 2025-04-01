@@ -1,19 +1,8 @@
 import { useEffect, useState } from 'react';
 import { getLogs } from './services/logs.service'; // Adjust the import path
 import LogsTable from './components/LogsTable'; // Adjust the import path
-import './index.css'; // Import CSS (if not already imported globally)
-
-// Define the type for a single log entry
-export interface LogEntry {
-  id: string;
-  thread_ts: string;
-  timestamp: string;
-  latency: number;
-  provider: string;
-  model: string;
-  tokens_used: number;
-  cost: number;
-}
+import './index.css'; // Ensure CSS is imported
+import { LogEntry } from './types/logs.types';
 
 function App() {
   const [logsMap, setLogsMap] = useState<Map<number, LogEntry[]>>(new Map());
@@ -21,7 +10,6 @@ function App() {
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
-  // Fetch logs with an optional nextToken
   const fetchLogs = async (token: string | null) => {
     setIsLoading(true);
     try {
@@ -37,28 +25,32 @@ function App() {
     }
   };
 
-  // Initial fetch on mount
   useEffect(() => {
-    fetchLogs();
+    fetchLogs(null);
   }, []);
 
-  // Handle "Next" button click
   const handleNext = () => {
     if (nextToken) {
       fetchLogs(nextToken);
     }
   };
 
-  // Handle page selection
   const handlePageSelect = (page: number) => {
     setCurrentPage(page);
+  };
+
+  const handleDetailsClick = (log: LogEntry) => {
+    console.log({
+      prompt: log.raw_request?.body.prompt,
+      response: log.raw_response?.text,
+    });
   };
 
   const currentLogs = logsMap.get(currentPage) || [];
 
   return (
     <div className="app-container">
-      <h1>AI Gateway Logs</h1>
+      <h1>AI GATEWAY LOGS</h1>
       <LogsTable
         logs={currentLogs}
         pageNumbers={Array.from(logsMap.keys())}
@@ -66,6 +58,7 @@ function App() {
         nextToken={nextToken}
         onNext={handleNext}
         onPageSelect={handlePageSelect}
+        onDetailsClick={handleDetailsClick}
       />
       {isLoading && (
         <div className="loading-overlay">

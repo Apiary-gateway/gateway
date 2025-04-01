@@ -1,4 +1,4 @@
-import { LogEntry } from '../types/logs.types';
+import { LogEntry } from '../types/logs.types'; // Adjust the import path
 
 interface LogsTableProps {
   logs: LogEntry[];
@@ -7,6 +7,7 @@ interface LogsTableProps {
   nextToken: string | null;
   onNext: () => void;
   onPageSelect: (page: number) => void;
+  onDetailsClick: (log: LogEntry) => void; // Added for clickable details
 }
 
 function LogsTable({
@@ -16,33 +17,48 @@ function LogsTable({
   nextToken,
   onNext,
   onPageSelect,
+  onDetailsClick,
 }: LogsTableProps) {
+  // Format timestamp to human-readable local date and time
+  const formatDateTime = (timestamp: string) => {
+    return new Date(timestamp).toLocaleString();
+  };
+
   return (
     <div>
       <table className="logs-table">
         <thead>
           <tr>
-            <th>ID</th>
-            <th>Thread TS</th>
-            <th>Timestamp</th>
-            <th>Latency (ms)</th>
-            <th>Provider</th>
+            <th>Time</th>
+            <th>Thread ID</th>
+            <th>Status</th>
             <th>Model</th>
-            <th>Tokens Used</th>
+            <th>Provider</th>
+            <th>Tokens</th>
             <th>Cost</th>
+            <th>Details</th>
           </tr>
         </thead>
         <tbody>
           {logs.map((log) => (
             <tr key={log.id}>
-              <td>{log.id}</td>
+              <td>{formatDateTime(log.timestamp)}</td>
               <td>{log.thread_ts}</td>
-              <td>{log.timestamp}</td>
-              <td>{log.latency}</td>
-              <td>{log.provider}</td>
+              <td className={log.status === 'failure' ? 'status-error' : ''}>
+                {log.status}
+              </td>
               <td>{log.model}</td>
-              <td>{log.tokens_used}</td>
+              <td>{log.provider}</td>
+              <td>{log.raw_response?.usage.total_tokens || 'NA'}</td>
               <td>{log.cost}</td>
+              <td>
+                <button
+                  className="details-button"
+                  onClick={() => onDetailsClick(log)}
+                >
+                  Details
+                </button>
+              </td>
             </tr>
           ))}
         </tbody>

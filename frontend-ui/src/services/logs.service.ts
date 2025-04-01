@@ -14,7 +14,6 @@ export const getLogs = async (token: string | null): Promise<LogsResponse> => {
       },
     });
     const parsedData = GetLogsResponseSchema.parse(data);
-    console.log(parsedData);
     return parsedData.body;
   } catch (error) {
     console.error('Error fetching logs:', error);
