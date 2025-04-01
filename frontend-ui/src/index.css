@@ -10,9 +10,10 @@ body {
   background-color: #343541; /* ChatGPT-like dark gray background */
   min-height: 100vh; /* Full height coverage */
   color: #d1d5db; /* Light gray text */
-  margin: 0; /* Ensure no margins */
+  margin: 0 auto; /* Center horizontally */
   padding: 0; /* Remove padding to eliminate white space */
   font-family: 'Inter', 'Helvetica', 'Arial', sans-serif; /* Sans-serif font */
+  max-width: 1000px; /* Constrain to a reasonable width */
 }
 
 .app-container h1 {
@@ -49,18 +50,21 @@ body {
   text-align: center; /* Center the heading */
 }
 
+.status-error {
+  color: #ef4444; /* Brighter red for visibility */
+  font-weight: 700; /* Bold text for emphasis */
+  font-style: italic; /* Italic for failure indication */
+  padding-left: 20px; /* Space for the icon */
+  display: inline-block; /* Ensure padding applies correctly */
+}
+
 .status-error::before {
   content: '\2717'; /* Unicode for cross mark (✗) */
   color: #f87171; /* Softer, less bright red */
   font-style: normal; /* Non-italic cross */
   font-weight: 700; /* Keep it bold */
-  left: 12px; /* Align with padding */
-  margin-right: 6px; /* Small space between icon and text */
+  margin-right: 6px; /* Space between icon and text */
   line-height: 1; /* Keep it tight */
-}
-
-.status-error {
-  font-style: italic; /* Italic for failure indication */
 }
 
 .details-button {
