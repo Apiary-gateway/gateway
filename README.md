@@ -62,16 +62,16 @@ name" field, and copy/paste the following for the JSON of the index.
         "type": "text"
       },
       "model": {
-        "type": "text"
+        "type": "keyword"
       },
       "provider": {
-        "type": "text"
+        "type": "keyword"
       },
       "timestamp": {
-        "type": "text"
+        "type": "date"
       },
       "userId": {
-        "type": "text"
+        "type": "keyword"
       }
     }
   },

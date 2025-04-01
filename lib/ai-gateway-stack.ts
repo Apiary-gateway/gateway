@@ -59,7 +59,7 @@ export class AiGatewayStack extends Stack {
       removalPolicy: RemovalPolicy.DESTROY,
     });
 
-    // Caching DynamoDB table
+    // Simple caching DynamoDB table
     const aiGatewayCacheTable = new dynamodb.Table(this, 'AiGatewayCacheTable', {
       tableName: 'ai-gateway-cache-table',
       partitionKey: { name: 'userId', type: dynamodb.AttributeType.STRING },
@@ -69,6 +69,7 @@ export class AiGatewayStack extends Stack {
       timeToLiveAttribute: 'ttl', // Automatically remove expired items
     });
 
+    // SEMANTIC CACHE ITEMS START
     // Security policy for OpenSearch Serverless collection for semantic cache
     const encryptionPolicy = new opensearch.CfnSecurityPolicy(this, 'OpenSearchEncryptionPolicy', {
       name: 'semantic-cache-encryption-policy',
@@ -84,8 +85,7 @@ export class AiGatewayStack extends Stack {
       })
     });
 
-    // TODO - make this more secure
-    // allow public network access to OpenSearch
+    // allow public network access to OpenSearch - tighten this down?
     const accessPolicy = new opensearch.CfnSecurityPolicy(this, 'PublicNetworkPolicy', {
       name: 'public-network-policy',
       type: 'network',
@@ -106,6 +106,8 @@ export class AiGatewayStack extends Stack {
     const vectorCollection = new opensearch.CfnCollection(this, 'SemanticCacheCollection', {
       name: 'semantic-cache',
       type: 'VECTORSEARCH',
+      // "dev-test mode" - disabling replicas should cut cost in half
+      standbyReplicas: 'DISABLED',
     });
 
     vectorCollection.node.addDependency(encryptionPolicy);
@@ -118,52 +120,6 @@ export class AiGatewayStack extends Stack {
         iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AWSLambdaBasicExecutionRole')
       ]
     });
-
-    // Data access policy for OpenSearch collection
-    // new opensearch.CfnAccessPolicy(this, 'OpenSearchAccessPolicy', {
-    //   name: 'semantic-cache-access-policy',
-    //   type: 'data',
-    //   policy: JSON.stringify([
-    //     {
-    //       Rules: [
-    //         {
-    //           ResourceType: 'collection',
-    //           // Resource: [`${vectorCollection.attrArn}`],
-    //           Resource: [`collection/${vectorCollection.name}`],
-    //           Permission: [
-    //             // // TODO: try locking this down more? i.e. just the permissions below it
-    //             "aoss:*",
-    //             // // lets the Principal list metadata about the collection
-    //             // "aoss:DescribeCollection",
-    //             // "aoss:DescribeCollectionItems",
-    //             // "aoss:DescribeIndex",
-    //             // "aoss:ReadDocument",
-    //             // "aoss:WriteDocument"
-    //           ],
-    //         },
-    //         {
-    //           ResourceType: 'index',
-    //           // Resource: [`arn:aws:aoss:${this.region}:${this.account}:index/${vectorCollection.attrId}/*`],
-    //           Resource: [`index/${vectorCollection.name}/*`],
-    //           // TODO: lock this down more?
-    //           Permission: [
-    //             "aoss:*",
-    //             // "aoss:DescribeCollection",
-    //             // "aoss:DescribeCollectionItems",
-    //             // "aoss:DescribeIndex",
-    //             // "aoss:ReadDocument",
-    //             // "aoss:WriteDocument"
-    //           ]
-    //         }
-    //       ],
-    //       // TODO: try locking this down more - specific Lambda function ARN, user ARNs
-    //       Principal: [
-    //         semanticCacheLambdaRole.roleArn,
-    //         `arn:aws:iam::${Aws.ACCOUNT_ID}:root`, 
-    //       ]
-    //     }
-    //   ])
-    // });
 
     new opensearch.CfnAccessPolicy(this, 'OpenSearchAccessPolicy', {
       name: 'semantic-cache-access-policy',
@@ -178,7 +134,6 @@ export class AiGatewayStack extends Stack {
             },
             {
               ResourceType: "index",
-              // Resource: [`arn:aws:aoss:${this.region}:${this.account}:index/${vectorCollection.attrId}/*`],
               Resource: ["index/*/*"],
               Permission: ["aoss:*"]
             }
@@ -190,26 +145,18 @@ export class AiGatewayStack extends Stack {
         }
       ])
     });
-      
-    // new opensearch.CfnAccessPolicy(this, 'OpenSearchAccessPolicy', {
-    //   name: 'semantic-cache-access-policy',
-    //   type: 'data',
-    //   policy: "[{\"Description\":\"Full access\",\"Rules\":[{\"ResourceType\":\"index\",\"Resource\":[\"index/*/*\"],\"Permission\":[\"aoss:*\"]}, {\"ResourceType\":\"collection\",\"Resource\":[\"collection/semantic-cache\"],\"Permission\":[\"aoss:*\"]}],\"Principal\":[\"arn:aws:iam::313983287632:role/AiGatewayStack-SemanticCacheLambdaRole402D8BF4-a0NZRXBOtiA0\", \"arn:aws:iam::313983287632:root\"]}]"
-    // });
 
     semanticCacheLambdaRole.addToPolicy(new iam.PolicyStatement({
       actions: ['bedrock:InvokeModel'],
-      // TODO: probably limit this to a specific Bedrock model(s)
+      // TODO: limit this to a specific Bedrock model(s)?
       resources: ['*']
     }));    
 
     semanticCacheLambdaRole.addToPolicy(new iam.PolicyStatement({
-      // full access to AWS OpenSearch Serverless API
       actions: [
         'aoss:ReadDocument',
         'aoss:WriteDocument',
         'aoss:DescribeCollectionItems',
-        // Optional: helpful for debugging
         'aoss:DescribeCollection',
         'aoss:ListCollections',
         'aoss:APIAccessAll',
@@ -231,6 +178,7 @@ export class AiGatewayStack extends Stack {
       value: `${vectorCollection.attrId}`,
       exportName: 'OpenSearchCollectionAttrId',
     });
+    // SEMANTIC CACHE ITEMS END
 
     // Secrets Manager for API keys
     const llmApiKeys = new secretsmanager.Secret(this, 'LLMProviderKeys', {
@@ -358,6 +306,7 @@ export class AiGatewayStack extends Stack {
       handler: 'handler',
       runtime: lambda.Runtime.NODEJS_18_X,
       timeout: Duration.seconds(30),
+      // comment out line below if not using semantic cache
       role: semanticCacheLambdaRole,
       bundling: {
         format: lambdaNode.OutputFormat.CJS,

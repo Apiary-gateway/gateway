@@ -39,41 +39,69 @@ export async function getEmbedding(prompt: string): Promise<number[]> {
   return body.embedding;
 }
 
-async function signedGet(path: string) {
-  try {
-    const credentials = await credentialsProvider();
-  
-    const signer = new SignatureV4({
-      credentials,
-      region,
-      service: 'aoss',
-      sha256: Sha256,
-    });
-  
-    const request = new HttpRequest({
-      method: 'GET',
-      protocol: 'https:',
-      hostname: new URL(collectionEndpoint).hostname,
-      path,
-      headers: {
-        host: new URL(collectionEndpoint).hostname,
-      },
-    });
-  
-    const signedRequest = await signer.sign(request);
+export async function checkSemanticCache(
+  requestBody: RequestPayload, 
+  requestEmbedding: number[]
+) { 
+  let { userId, provider, model } = requestBody;
+  userId = userId ? userId : 'global';
 
-    const signedHeaders = signedRequest.headers;
-  
-    const response = await axios.get(`${collectionEndpoint}${path}`, {
-      headers: signedHeaders,
+  // KNN is K-nearest neighbors, where K is number of nearest neighbors to get  
+  const knnQuery = {
+    size: 1,
+    query: {
+      knn: {
+        embedding: {
+          vector: requestEmbedding,
+          k: 1
+        }
+      }
+    },
+    post_filter: {
+      bool: {
+        must: [
+          { term: { userId: {value: userId} } },
+          { term: { provider: {value: provider} } },
+          { term: { model: {value: model} } },
+        ]
+      }  
+    }
+  }
+
+  const response = await signedPost(`/${indexName}/_search`, knnQuery);
+
+  const topHit = response.hits?.hits?.[0];
+  const similarityScore = topHit?._score;
+
+  return similarityScore && similarityScore >= similarityThreshold ?
+    topHit._source.llmResponse : null;
+}
+
+export async function addToSemanticCache(
+  requestBody: RequestPayload, 
+  embedding: number[], 
+  llmResponse: { text: string, usage: CompletionResponse['usage'] }
+) {
+  try {
+    let { userId, provider, model, prompt } = requestBody;
+    userId = userId ? userId : 'global';
+    
+    const response = await signedPost(`/${indexName}/_doc`, {
+      userId,
+      provider,
+      model,
+      embedding,
+      requestText: prompt,
+      llmResponse: JSON.stringify(llmResponse),
+      timestamp: new Date().toISOString()
     });
-  
-    return response.data;
+
+    // console.log('successfully added to semantic cache: ', JSON.stringify(response));
   } catch (err) {
     if (err instanceof AxiosError) {
-      console.log('Axios error data: ', err.response?.data);
-    } else {
-      console.log('An error occurred: ', err);
+      console.log('Axios error in addToSemanticCache: ', err.response?.data);
+    } else{
+      console.log('error in addToSemanticCache: ', err);
     }
   }
 }
@@ -122,72 +150,41 @@ async function signedPost(path: string, body: object) {
   }
 }
 
-export async function checkSemanticCache(
-  requestBody: RequestPayload, 
-  requestEmbedding: number[]
-) { 
-  let { userId, provider, model } = requestBody;
-  userId = userId ? userId : 'global';
-
-  // KNN is K-nearest neighbors, where K is number of nearest neighbors to get  
-  const knnQuery = {
-    size: 3,
-    query: {
-      knn: {
-        embedding: {
-          vector: requestEmbedding,
-          k: 3
-        }
-      }
-    },
-    post_filter: {
-      bool: {
-        must: [
-          { match: { userId } },
-          { match: { provider } },
-          { match: { model } },
-        ]
-      }  
-    }
-  }
-
-  const response = await signedPost(`/${indexName}/_search`, knnQuery);
-
-  // const topHit = response.hits?.hits?.[0];
-  // const similarityScore = topHit?._score;
-
-  // return similarityScore && similarityScore >= similarityThreshold ?
-  //   topHit._source.llmResponse : null;
-  
-  return response;
-}
-
-export async function addToSemanticCache(
-  requestBody: RequestPayload, 
-  embedding: number[], 
-  llmResponse: { text: string, usage: CompletionResponse['usage'] }
-) {
+async function signedGet(path: string) {
   try {
-    let { userId, provider, model, prompt } = requestBody;
-    userId = userId ? userId : 'global';
-    
-    const response = await signedPost(`/${indexName}/_doc`, {
-      userId,
-      provider,
-      model,
-      embedding,
-      requestText: prompt,
-      llmResponse: JSON.stringify(llmResponse),
-      timestamp: new Date().toISOString()
+    const credentials = await credentialsProvider();
+  
+    const signer = new SignatureV4({
+      credentials,
+      region,
+      service: 'aoss',
+      sha256: Sha256,
     });
+  
+    const request = new HttpRequest({
+      method: 'GET',
+      protocol: 'https:',
+      hostname: new URL(collectionEndpoint).hostname,
+      path,
+      headers: {
+        host: new URL(collectionEndpoint).hostname,
+      },
+    });
+  
+    const signedRequest = await signer.sign(request);
 
-    // for debugging
-    console.log('successfully added to semantic cache: ', JSON.stringify(response));
+    const signedHeaders = signedRequest.headers;
+  
+    const response = await axios.get(`${collectionEndpoint}${path}`, {
+      headers: signedHeaders,
+    });
+  
+    return response.data;
   } catch (err) {
     if (err instanceof AxiosError) {
-      console.log('Axios error in addToSemanticCache: ', err.response?.data);
-    } else{
-      console.log('error in addToSemanticCache: ', err);
+      console.log('Axios error data: ', err.response?.data);
+    } else {
+      console.log('An error occurred: ', err);
     }
   }
 }

@@ -131,14 +131,17 @@ export const handler = async (event: any) => {
       provider = Math.random() < 0.5 ? 'openai' : 'anthropic';
     }
 
-    // const requestEmbedding = [1, 2, 3];
     const requestEmbedding = await getEmbedding(prompt);
     const semanticCacheResponse = await checkSemanticCache(parsed.data, requestEmbedding);
-    console.log('semantic cache response:', JSON.stringify(semanticCacheResponse));
-
-    // const index = await signedGet('/semantic-cache-index');
-    // console.log('test from router:', JSON.stringify(index));
-    
+    if (semanticCacheResponse) {
+      return {
+        statusCode: 200,
+        body: JSON.stringify({
+          provider,
+          semanticCacheResponse,
+        }),
+      };
+    }
 
     const response = await callLLM([], prompt, provider, model);
 
@@ -155,14 +158,13 @@ export const handler = async (event: any) => {
 
     // don't await - no need to wait here
     addToSimpleCache(parsed.data, response);
-    await addToSemanticCache(parsed.data, requestEmbedding, response);
+    addToSemanticCache(parsed.data, requestEmbedding, response);
 
     return {
       statusCode: 200,
       body: JSON.stringify({
         provider,
-        response,
-        semanticCacheResponse
+        response
       }),
     };
   } catch (error) {
