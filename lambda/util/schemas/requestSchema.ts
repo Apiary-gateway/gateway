@@ -1,5 +1,4 @@
 import { z } from 'zod';
-import { AllModels, SupportedLLMs } from '../types';
 import { MODELS } from '../constants';
 import { isValidModelForProvider } from '../modelValidation';
 

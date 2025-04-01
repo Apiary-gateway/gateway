@@ -1,6 +1,5 @@
 import { processRequest } from './util/processRequest';
 
-
 export const handler = async (event: any) => {
     try {
         return await processRequest(event);

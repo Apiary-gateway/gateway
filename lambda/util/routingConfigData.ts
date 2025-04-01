@@ -1,9 +1,8 @@
 import { RoutingConfig } from './types';
 
 export const routingConfig: RoutingConfig = {
-  fallbackModel: { provider: 'anthropic', model: 'claude-3-haiku' },
-  fallbackOnAnyError: true,
-  fallbackOnStatus: [500, 429],
+  fallbackModel: { provider: 'anthropic', model: 'claude-3-5-haiku-20241022' },
+  fallbackOnStatus: [500, 503, 429, 401],
   conditions: [
     {
       query: (meta) => meta.userType === 'pro',
@@ -16,7 +15,7 @@ export const routingConfig: RoutingConfig = {
     {
       query: (meta) => meta.region === 'eu',
       loadBalance: [
-        { provider: 'openai', model: 'gpt-4o-mini', weight: 1 },
+        { provider: 'gemini', model: 'gemini-2.0-flash-001', weight: 1 },
       ],
     },
   ],

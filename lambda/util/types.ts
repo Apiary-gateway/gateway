@@ -11,12 +11,6 @@ export type SupportedLLMs = keyof typeof MODELS;
 export type ModelForProvider<T extends SupportedLLMs> = typeof MODELS[T][number];
 export type AllModels = typeof MODELS[SupportedLLMs][number];
 
-// export type ModelMap = {
-//     [K in keyof typeof MODELS]: (typeof MODELS)[K][number]
-// }
-// K is of type provider in the MODELS constant, 
-// the value is the corresponding value for the provider (the models) and then the union of those (the [number] part)
-
 export type ProviderModel = {
     [K in SupportedLLMs]: { provider: K, model: ModelForProvider<K> }
 }[SupportedLLMs];
@@ -51,8 +45,6 @@ export type CallLLMArgs = {
     provider: ProviderModel['provider'];
     model: string;
 }
-
-export type CallLLM = (args: CallLLMArgs) => Promise<any>;
 
 export type RouteRequestArgs = {
     history: InternalMessage[];

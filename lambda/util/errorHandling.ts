@@ -6,5 +6,9 @@ export function getErrorStatusCode(error: unknown): number | undefined {
         }
     }
 
+    if (error instanceof Object && 'status' in error && typeof error.status === 'number') {
+        return error.status;
+    }
+
     return undefined;
 }

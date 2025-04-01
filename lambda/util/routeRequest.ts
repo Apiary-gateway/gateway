@@ -28,22 +28,30 @@ Promise<{ text: string, usage: CompletionResponse['usage'] }> {
             })
   
           } catch (error) {
-            // fails, determine status codes to fallback on (configured or detault if not configured)
-            const statusCode = getErrorStatusCode(error);
-            const fallbackStatuses = routingConfig.fallbackOnStatus || FALLBACK_STATUS_CODES;
-            // if status code is a fallback status code, determine fallback model (configured or default if not configured)
-            if (statusCode && fallbackStatuses.includes(statusCode)) {
-
-              return routeToFallback({ history, prompt, condition: cond })
-            } else {
-              throw error;
-            }
+            return await handleRoutingError(error, history, prompt, cond);
           }
         } 
       }
     }
 
     return await routeToDefault({ history, prompt })
+}
+
+async function handleRoutingError(
+  error: any,
+  history: RouteRequestArgs['history'],
+  prompt: RouteRequestArgs['prompt'],
+  condition?: RouteRequestArgs['condition']
+) {
+  const statusCode = getErrorStatusCode(error);
+
+  const fallbackStatuses = routingConfig.fallbackOnStatus || FALLBACK_STATUS_CODES;
+  if (statusCode && fallbackStatuses.includes(statusCode)) {
+    return await routeToFallback({ history, prompt, condition });
+  } else {
+    console.error('Error routing request:', error)
+    throw error;
+  }
 }
 
 async function routeToDefault({ history, prompt, condition }: RouteRequestArgs) {
@@ -57,6 +65,7 @@ async function routeToDefault({ history, prompt, condition }: RouteRequestArgs) 
 
 async function routeToFallback({ history, prompt, condition }: RouteRequestArgs) {
   const fallbackModel = condition?.fallbackModel || routingConfig.fallbackModel;
+
   return await callLLM({ 
       history, 
       prompt, 
@@ -92,27 +101,3 @@ function weightedPick(choices: WeightedProviderModel[]): ProviderModel {
   return choices[choices.length - 1];
 }
 
-async function handleRoutingError(
-  error: any,
-  history: RouteRequestArgs['history'],
-  prompt: RouteRequestArgs['prompt'],
-  condition?: RouteRequestArgs['condition']
-) {
-  const statusCode = getErrorStatusCode(error);
-  const fallbackStatuses = routingConfig.fallbackOnStatus || FALLBACK_STATUS_CODES;
-  if (statusCode && fallbackStatuses.includes(statusCode)) {
-    const fallbackModel = condition?.fallbackModel || routingConfig.fallbackModel;
-    try {
-      return await callLLM({
-        history,
-        prompt,
-        provider: fallbackModel.provider,
-        model: fallbackModel.model
-      });
-    } catch (error) {
-      throw error;
-    }
-  } else {
-    throw error;
-  }
-}
