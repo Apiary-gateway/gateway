@@ -168,8 +168,34 @@ export class AiGatewayStack extends Stack {
     new opensearch.CfnAccessPolicy(this, 'OpenSearchAccessPolicy', {
       name: 'semantic-cache-access-policy',
       type: 'data',
-      policy: "[{\"Description\":\"Full access\",\"Rules\":[{\"ResourceType\":\"index\",\"Resource\":[\"index/*/*\"],\"Permission\":[\"aoss:*\"]}, {\"ResourceType\":\"collection\",\"Resource\":[\"collection/semantic-cache\"],\"Permission\":[\"aoss:*\"]}],\"Principal\":[\"arn:aws:iam::313983287632:role/AiGatewayStack-SemanticCacheLambdaRole402D8BF4-a0NZRXBOtiA0\", \"arn:aws:iam::313983287632:root\"]}]"
+      policy: JSON.stringify([
+        {
+          Rules: [
+            {
+              ResourceType: "collection",
+              Resource: [`collection/${vectorCollection.name}`],
+              Permission: ["aoss:*"],
+            },
+            {
+              ResourceType: "index",
+              // Resource: [`arn:aws:aoss:${this.region}:${this.account}:index/${vectorCollection.attrId}/*`],
+              Resource: ["index/*/*"],
+              Permission: ["aoss:*"]
+            }
+          ],
+          Principal: [
+            semanticCacheLambdaRole.roleArn,
+            `arn:aws:iam::${Aws.ACCOUNT_ID}:root`, 
+          ]
+        }
+      ])
     });
+      
+    // new opensearch.CfnAccessPolicy(this, 'OpenSearchAccessPolicy', {
+    //   name: 'semantic-cache-access-policy',
+    //   type: 'data',
+    //   policy: "[{\"Description\":\"Full access\",\"Rules\":[{\"ResourceType\":\"index\",\"Resource\":[\"index/*/*\"],\"Permission\":[\"aoss:*\"]}, {\"ResourceType\":\"collection\",\"Resource\":[\"collection/semantic-cache\"],\"Permission\":[\"aoss:*\"]}],\"Principal\":[\"arn:aws:iam::313983287632:role/AiGatewayStack-SemanticCacheLambdaRole402D8BF4-a0NZRXBOtiA0\", \"arn:aws:iam::313983287632:root\"]}]"
+    // });
 
     semanticCacheLambdaRole.addToPolicy(new iam.PolicyStatement({
       actions: ['bedrock:InvokeModel'],

@@ -35,12 +35,57 @@ This prototype:
 
 * Implements simple caching. 
 
-* ~~Implements semantic caching. After deploying the CDK stack, go to the AWS
+* Implements semantic caching. After deploying the CDK stack, go to the AWS
 OpenSearch console. In the left-hand navigation bar under "Serverless", click on
 "Collections", then click on the 'semantic-cache' collection. Click on the "Indexes"
 tab, then "Create Index", "JSON". Enter semantic-cache-index for the "Vector index 
 name" field, and copy/paste the following for the JSON of the index.
-(I'm struggling to automate this process right now!):~~ -> trying to figure this out...
+(TODO - automate a PUT request for this):
+{
+  "aliases": {},
+  "mappings": {
+    "properties": {
+      "embedding": {
+        "type": "knn_vector",
+        "dimension": 1024,
+        "method": {
+          "engine": "nmslib",
+          "space_type": "cosinesimil",
+          "name": "hnsw",
+          "parameters": {}
+        }
+      },
+      "llmResponse": {
+        "type": "text"
+      },
+      "requestText": {
+        "type": "text"
+      },
+      "model": {
+        "type": "text"
+      },
+      "provider": {
+        "type": "text"
+      },
+      "timestamp": {
+        "type": "text"
+      },
+      "userId": {
+        "type": "text"
+      }
+    }
+  },
+  "settings": {
+    "index": {
+      "number_of_shards": "2",
+      "knn.algo_param": {
+          "ef_search": "512"
+      },
+      "knn": "true",
+      "number_of_replicas": "0"
+    }
+  }
+}
 
 
 
