@@ -44,6 +44,12 @@ export class AiGatewayStack extends Stack {
       })
     );
 
+    const messageTable = new dynamodb.Table(this, 'LLMMessageTable', {
+      partitionKey: { name: 'threadID', type: dynamodb.AttributeType.STRING },
+      sortKey: { name: 'timestamp', type: dynamodb.AttributeType.NUMBER },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+    });
+
     // DynamoDB table
     const aiGatewayLogsTable = new dynamodb.Table(this, 'AiGatewayLogsTable', {
       tableName: 'ai-gateway-logs-table',
@@ -196,6 +202,7 @@ export class AiGatewayStack extends Stack {
       environment: {
         LOG_TABLE_NAME: aiGatewayLogsTable.tableName,
         SECRET_NAME: llmApiKeys.secretName,
+        MESSAGE_TABLE_NAME: messageTable.tableName,
         SYSTEM_PROMPT: 'You are a helpful assistant. You answer in cockney.',
         LOG_BUCKET_NAME: logBucket.bucketName,
         CACHE_TABLE_NAME: aiGatewayCacheTable.tableName,
@@ -273,6 +280,7 @@ export class AiGatewayStack extends Stack {
     llmApiKeys.grantRead(routerFn);
     logBucket.grantReadWrite(routerFn);
     aiGatewayLogsTable.grantReadData(logsFn);
+    messageTable.grantReadWriteData(routerFn);
     logBucket.grantReadWrite(logsFn);
     logsFn.addToRolePolicy(
       new iam.PolicyStatement({

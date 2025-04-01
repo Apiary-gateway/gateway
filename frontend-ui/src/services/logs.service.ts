@@ -4,7 +4,7 @@ import { GetLogsResponseSchema, LogsResponse } from '../types/logs.types';
 const LOGS_BASE_URL =
   // @ts-ignore
   window?.LOGS_ENDPOINT ||
-  'https://f04zlou195.execute-api.us-east-1.amazonaws.com/dev/logs';
+  'https://h157xcj6t5.execute-api.us-east-2.amazonaws.com/dev/logs';
 
 export const getLogs = async (token: string | null): Promise<LogsResponse> => {
   try {
@@ -13,6 +13,7 @@ export const getLogs = async (token: string | null): Promise<LogsResponse> => {
         token,
       },
     });
+    console.log(data);
     const parsedData = GetLogsResponseSchema.parse(data);
     return parsedData.body;
   } catch (error) {

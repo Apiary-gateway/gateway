@@ -5,23 +5,18 @@ import * as parquets from 'parquets';
 import * as os from 'os';
 import * as path from 'path';
 import { readFile, unlink } from 'fs/promises';
-
-export type VALID_PROVIDERS = 'openai' | 'anthropic' | 'gemini';
-export type VALID_MODELS =
-  | 'gpt-3.5-turbo'
-  | 'gpt-4'
-  | 'claude-3-opus-20240229'
-  | 'gemini-1.5-pro';
+import { SupportedLLMs, AllModels } from './types';
 
 export interface CommonLogData {
   requestStartTime: number;
-  provider: VALID_PROVIDERS | null;
-  model: VALID_MODELS | null;
+  provider: SupportedLLMs | null;
+  model: AllModels | null;
   tokens_used: number;
   cost: number;
   RawRequest: string;
   RawResponse?: string;
   errorMessage?: string;
+  cached?: boolean;
 }
 
 interface InternalLogData {
