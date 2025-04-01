@@ -26,15 +26,15 @@ const UsageSchema = z.object({
 const RawResponseSchema = z.object({
   text: z.string(),
   usage: UsageSchema,
-  provider: z.string(),
-  model: z.string(),
+  provider: z.string().optional(),
+  model: z.string().optional(),
 });
 
 // Schema for `body` inside `raw_request`
 const RequestBodySchema = z.object({
   prompt: z.string(),
-  provider: z.string(),
-  model: z.string(),
+  provider: z.string().optional(),
+  model: z.string().optional(),
 });
 
 // Schema for `identity` inside `requestContext`
