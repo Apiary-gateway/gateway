@@ -78,113 +78,113 @@ export class AiGatewayStack extends Stack {
 
     // SEMANTIC CACHE ITEMS START
     // Security policy for OpenSearch Serverless collection for semantic cache
-    const encryptionPolicy = new opensearch.CfnSecurityPolicy(this, 'OpenSearchEncryptionPolicy', {
-      name: 'semantic-cache-encryption-policy',
-      type: 'encryption',
-      policy: JSON.stringify({
-        Rules: [
-          {
-            ResourceType: 'collection',
-            Resource: ['collection/semantic-cache']
-          }
-        ],
-        AWSOwnedKey: true
-      })
-    });
+    // const encryptionPolicy = new opensearch.CfnSecurityPolicy(this, 'OpenSearchEncryptionPolicy', {
+    //   name: 'semantic-cache-encryption-policy',
+    //   type: 'encryption',
+    //   policy: JSON.stringify({
+    //     Rules: [
+    //       {
+    //         ResourceType: 'collection',
+    //         Resource: ['collection/semantic-cache']
+    //       }
+    //     ],
+    //     AWSOwnedKey: true
+    //   })
+    // });
 
-    // allow public network access to OpenSearch - tighten this down?
-    const accessPolicy = new opensearch.CfnSecurityPolicy(this, 'PublicNetworkPolicy', {
-      name: 'public-network-policy',
-      type: 'network',
-      policy: JSON.stringify([
-        {
-          Rules: [
-            {
-              ResourceType: 'collection',
-              Resource: ['collection/semantic-cache'],
-            },
-          ],
-          AllowFromPublic: true,
-        },
-      ]),
-    });
+    // // allow public network access to OpenSearch - tighten this down?
+    // const accessPolicy = new opensearch.CfnSecurityPolicy(this, 'PublicNetworkPolicy', {
+    //   name: 'public-network-policy',
+    //   type: 'network',
+    //   policy: JSON.stringify([
+    //     {
+    //       Rules: [
+    //         {
+    //           ResourceType: 'collection',
+    //           Resource: ['collection/semantic-cache'],
+    //         },
+    //       ],
+    //       AllowFromPublic: true,
+    //     },
+    //   ]),
+    // });
 
-    // OpenSearch Serverless collection for semantic cache
-    const vectorCollection = new opensearch.CfnCollection(this, 'SemanticCacheCollection', {
-      name: 'semantic-cache',
-      type: 'VECTORSEARCH',
-      // "dev-test mode" - disabling replicas should cut cost in half
-      standbyReplicas: 'DISABLED',
-    });
+    // // OpenSearch Serverless collection for semantic cache
+    // const vectorCollection = new opensearch.CfnCollection(this, 'SemanticCacheCollection', {
+    //   name: 'semantic-cache',
+    //   type: 'VECTORSEARCH',
+    //   // "dev-test mode" - disabling replicas should cut cost in half
+    //   standbyReplicas: 'DISABLED',
+    // });
 
-    vectorCollection.node.addDependency(encryptionPolicy);
-    vectorCollection.node.addDependency(accessPolicy);
+    // vectorCollection.node.addDependency(encryptionPolicy);
+    // vectorCollection.node.addDependency(accessPolicy);
 
-    // IAM role for Lambda to invoke Bedrock models and access OpenSearch API
-    const semanticCacheLambdaRole = new iam.Role(this, 'SemanticCacheLambdaRole', {
-      assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
-      managedPolicies: [
-        iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AWSLambdaBasicExecutionRole')
-      ]
-    });
+    // // IAM role for Lambda to invoke Bedrock models and access OpenSearch API
+    // const semanticCacheLambdaRole = new iam.Role(this, 'SemanticCacheLambdaRole', {
+    //   assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
+    //   managedPolicies: [
+    //     iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AWSLambdaBasicExecutionRole')
+    //   ]
+    // });
 
-    new opensearch.CfnAccessPolicy(this, 'OpenSearchAccessPolicy', {
-      name: 'semantic-cache-access-policy',
-      type: 'data',
-      policy: JSON.stringify([
-        {
-          Rules: [
-            {
-              ResourceType: "collection",
-              Resource: [`collection/${vectorCollection.name}`],
-              Permission: ["aoss:*"],
-            },
-            {
-              ResourceType: "index",
-              Resource: ["index/*/*"],
-              Permission: ["aoss:*"]
-            }
-          ],
-          Principal: [
-            semanticCacheLambdaRole.roleArn,
-            `arn:aws:iam::${Aws.ACCOUNT_ID}:root`, 
-          ]
-        }
-      ])
-    });
+    // new opensearch.CfnAccessPolicy(this, 'OpenSearchAccessPolicy', {
+    //   name: 'semantic-cache-access-policy',
+    //   type: 'data',
+    //   policy: JSON.stringify([
+    //     {
+    //       Rules: [
+    //         {
+    //           ResourceType: "collection",
+    //           Resource: [`collection/${vectorCollection.name}`],
+    //           Permission: ["aoss:*"],
+    //         },
+    //         {
+    //           ResourceType: "index",
+    //           Resource: ["index/*/*"],
+    //           Permission: ["aoss:*"]
+    //         }
+    //       ],
+    //       Principal: [
+    //         semanticCacheLambdaRole.roleArn,
+    //         `arn:aws:iam::${Aws.ACCOUNT_ID}:root`, 
+    //       ]
+    //     }
+    //   ])
+    // });
 
-    semanticCacheLambdaRole.addToPolicy(new iam.PolicyStatement({
-      actions: ['bedrock:InvokeModel'],
-      // TODO: limit this to a specific Bedrock model(s)?
-      resources: ['*']
-    }));    
+    // semanticCacheLambdaRole.addToPolicy(new iam.PolicyStatement({
+    //   actions: ['bedrock:InvokeModel'],
+    //   // TODO: limit this to a specific Bedrock model(s)?
+    //   resources: ['*']
+    // }));    
 
-    semanticCacheLambdaRole.addToPolicy(new iam.PolicyStatement({
-      actions: [
-        'aoss:ReadDocument',
-        'aoss:WriteDocument',
-        'aoss:DescribeCollectionItems',
-        'aoss:DescribeCollection',
-        'aoss:ListCollections',
-        'aoss:APIAccessAll',
-      ],
-      // TODO: limit this more to specific resources?
-      resources: [
-        `arn:aws:aoss:${this.region}:${this.account}:*`,
-        `arn:aws:aoss:${this.region}:${this.account}:collection/semantic-cache`,
-        `arn:aws:aoss:${this.region}:${this.account}:index/semantic-cache/*`
-      ]
-    }));
+    // semanticCacheLambdaRole.addToPolicy(new iam.PolicyStatement({
+    //   actions: [
+    //     'aoss:ReadDocument',
+    //     'aoss:WriteDocument',
+    //     'aoss:DescribeCollectionItems',
+    //     'aoss:DescribeCollection',
+    //     'aoss:ListCollections',
+    //     'aoss:APIAccessAll',
+    //   ],
+    //   // TODO: limit this more to specific resources?
+    //   resources: [
+    //     `arn:aws:aoss:${this.region}:${this.account}:*`,
+    //     `arn:aws:aoss:${this.region}:${this.account}:collection/semantic-cache`,
+    //     `arn:aws:aoss:${this.region}:${this.account}:index/semantic-cache/*`
+    //   ]
+    // }));
     
-    new CfnOutput(this, 'OpenSearchEndpoint', {
-      value: `${vectorCollection.attrCollectionEndpoint}`,
-      exportName: 'OpenSearchCollectionEndpoint',
-    });
+    // new CfnOutput(this, 'OpenSearchEndpoint', {
+    //   value: `${vectorCollection.attrCollectionEndpoint}`,
+    //   exportName: 'OpenSearchCollectionEndpoint',
+    // });
 
-    new CfnOutput(this, 'OpenSearchCollectionAttrId', {
-      value: `${vectorCollection.attrId}`,
-      exportName: 'OpenSearchCollectionAttrId',
-    });
+    // new CfnOutput(this, 'OpenSearchCollectionAttrId', {
+    //   value: `${vectorCollection.attrId}`,
+    //   exportName: 'OpenSearchCollectionAttrId',
+    // });
     // SEMANTIC CACHE ITEMS END
 
     // Secrets Manager for API Keys
@@ -309,7 +309,7 @@ export class AiGatewayStack extends Stack {
       runtime: lambda.Runtime.NODEJS_18_X,
       timeout: Duration.seconds(30),
       // comment out line below if not using semantic cache
-      role: semanticCacheLambdaRole,
+      // role: semanticCacheLambdaRole,
       bundling: {
         format: lambdaNode.OutputFormat.CJS,
         externalModules: ['aws-sdk'],
@@ -322,8 +322,8 @@ export class AiGatewayStack extends Stack {
         SYSTEM_PROMPT: 'You are a helpful assistant. You answer in cockney.',
         LOG_BUCKET_NAME: logBucket.bucketName,
         CACHE_TABLE_NAME: aiGatewayCacheTable.tableName,
-        OPENSEARCH_ENDPOINT: vectorCollection.attrCollectionEndpoint,
-        OPENSEARCH_INDEX: 'semantic-cache-index',
+        // OPENSEARCH_ENDPOINT: vectorCollection.attrCollectionEndpoint,
+        // OPENSEARCH_INDEX: 'semantic-cache-index',
       },
     });
 

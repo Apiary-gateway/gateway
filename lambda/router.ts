@@ -82,18 +82,18 @@ export const handler = async (event: any) => {
           };
         }
 
-        const requestEmbedding = await getEmbedding(prompt);
-        const semanticCacheResponse = 
-          await checkSemanticCache(requestEmbedding, userId, provider, model);
-        if (semanticCacheResponse) {
-          return {
-            statusCode: 200,
-            body: JSON.stringify({
-              provider,
-              semanticCacheResponse,
-            }),
-        };
-        }
+        // const requestEmbedding = await getEmbedding(prompt);
+        // const semanticCacheResponse = 
+        //   await checkSemanticCache(requestEmbedding, userId, provider, model);
+        // if (semanticCacheResponse) {
+        //   return {
+        //     statusCode: 200,
+        //     body: JSON.stringify({
+        //       provider,
+        //       semanticCacheResponse,
+        //     }),
+        // };
+        // }
 
         const history = await getMessageHistory(threadID);
         const response = await routeRequest({ history, prompt, provider, model, metadata });
@@ -107,7 +107,7 @@ export const handler = async (event: any) => {
 
         // don't await - no need to wait here
         addToSimpleCache(prompt, response.text, userId, provider, model);
-        addToSemanticCache(requestEmbedding, prompt, response.text, userId, provider, model);
+        // addToSemanticCache(requestEmbedding, prompt, response.text, userId, provider, model);
 
         return {
             statusCode: 200,

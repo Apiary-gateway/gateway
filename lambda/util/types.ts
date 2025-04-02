@@ -35,7 +35,6 @@ export type RoutingConfig = {
     conditions?: RoutingCondition[];
     defaultModel: ProviderModel;
     fallbackModel: ProviderModel;
-    fallbackOnAnyError: boolean;
     fallbackOnStatus?: number[];
 }
 
@@ -62,3 +61,18 @@ export type ParsedRequestData = {
     model?: string;
     userId?: string;
 }
+
+export interface RoutingLog {
+    requestId: string;
+    timestamp: number;
+    events: RoutingEvent[];
+}
+
+export type RoutingEvent = 
+    | { type: 'condition_match'; conditionName: string; metaField: string; metaValue: string }
+    | { type: 'load_balance' }
+    | { type: 'model_selected'; provider: string; model: string; weight: number }
+    | { type: 'routed_to_fallback'; newProvider: string; newModel: string }
+    | { type: 'routed_to_default'; provider: string; model: string }
+    | { type: 'routed_to_specified'; provider: string; model: string }
+    | { type: 'routing_error'; error: string }
