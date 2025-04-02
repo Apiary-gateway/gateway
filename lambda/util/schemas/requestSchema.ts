@@ -4,7 +4,7 @@ import { isValidModelForProvider } from '../modelValidation';
 
 const providers = Object.keys(MODELS) as [string, ...string[]]; // zod requires a tuple with at least one string element in its enum() function
 
-export const RequestSchema = z
+export const RequestBodySchema = z
   .object({
     prompt: z.string().min(1),
     threadID: z.string().optional(),
@@ -36,4 +36,4 @@ export const RequestSchema = z
     }
   });
 
-export type RequestPayload = z.infer<typeof RequestSchema>;
+export type RequestPayload = z.infer<typeof RequestBodySchema>;

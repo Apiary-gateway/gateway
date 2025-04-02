@@ -7,11 +7,10 @@ import { getMessageHistory, saveMessages } from './util/getAndSaveMessages';
 import { routeRequest } from './util/routeRequest';
 import { validateModel } from './util/modelValidation';
 import { SupportedLLMs, AllModels } from './util/types';
-import {
-//   logSuccessfulRequest,
+import //   logSuccessfulRequest,
 //   logFailedRequest,
 //   CommonLogData,
-} from './util/logger';
+'./util/logger';
 import { addToSimpleCache, checkSimpleCache } from './util/simpleCache';
 import {
   addToSemanticCache,
@@ -21,38 +20,34 @@ import {
 import { parse } from 'path';
 import { Logger } from './util/logger';
 
-export const handler = async (event: any) => {
+export const handler = async (event: unknown) => {
   const logger = new Logger();
   try {
-    const parsed = validateRequest(event);
-    if (!parsed.success) {
+    const parsedRequest = validateRequest(event);
+
+    if (!parsedRequest.success) {
       // Do we save the response body as well.
+      // Need to add status code 400 to the logger.
       logger.logError('Invalid Request Body');
       return {
         statusCode: 400,
         body: JSON.stringify({
           error: 'Invalid request body.',
-          details: parsed.error.flatten(),
+          details: parsedRequest.error,
         }),
       };
     }
 
-    // Here the moment data is parse we need to update the logger.
-    // Does that makes sense?
-    // What is userId? Does that go into the database?
-    const payload = parsed.data;
+    const payload = parsedRequest.data;
     const { threadID, prompt, provider, model, userId } =
       extractRequestData(payload);
     const metadata = extractRequestMetadata(event, payload);
 
-    logData.model = model as AllModels;
-    logData.provider = provider as SupportedLLMs;
-
     if (!prompt) {
-      await logFailedRequest({
-        ...logData,
-        errorMessage: 'No prompt provided in the request body',
-      });
+      // await logFailedRequest({
+      //   ...logData,
+      //   errorMessage: 'No prompt provided in the request body',
+      // });
 
       return {
         statusCode: 400,
@@ -63,10 +58,10 @@ export const handler = async (event: any) => {
     }
 
     if (provider && model && !validateModel({ provider, model })) {
-      await logFailedRequest({
-        ...logData,
-        errorMessage: 'Provider and model combination invalid.',
-      });
+      // await logFailedRequest({
+      //   ...logData,
+      //   errorMessage: 'Provider and model combination invalid.',
+      // });
 
       return {
         statusCode: 400,
@@ -76,6 +71,12 @@ export const handler = async (event: any) => {
       };
     }
 
+    // TODO: ALL VALIDATION DONE ( all validation logic should move to the validation file)
+    // Now we need to add the data to the logger.
+    // At this point we have extracted the data from the request body, and the metadata - and now add everything except provider and model
+    // Provider and model for purposes of logging represent the actual model from which the response will be generated and hence should be added at the end.
+
+    // TODO
     // If cache is hit, we need to save the log into the database.
     // What is the response being send? How do we save it? Are we sending something in the header?
     const simpleCacheResponse = await checkSimpleCache(
@@ -120,10 +121,10 @@ export const handler = async (event: any) => {
 
     await saveMessages(prompt, response.text, threadID);
 
-    await logSuccessfulRequest({
-      ...logData,
-      RawResponse: JSON.stringify(response),
-    });
+    // await logSuccessfulRequest({
+    //   ...logData,
+    //   RawResponse: JSON.stringify(response),
+    // });
 
     // don't await - no need to wait here
     addToSimpleCache(prompt, response.text, userId, provider, model);
@@ -149,7 +150,7 @@ export const handler = async (event: any) => {
     const errorMessage =
       error instanceof Error ? error.message : 'Unknown Error';
 
-    await logFailedRequest({ ...logData, errorMessage });
+    // await logFailedRequest({ ...logData, errorMessage });
 
     return {
       statusCode: 500,
