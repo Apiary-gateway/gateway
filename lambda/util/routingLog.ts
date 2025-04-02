@@ -1,4 +1,4 @@
-import { RoutingEvent, RoutingLog as RoutingLogType } from "./types";
+import { RoutingEvent, RoutingLog as RoutingLogType, SupportedLLMs, ModelForProvider } from "./types";
 
 export class RoutingLog {
     private log: RoutingLogType;
@@ -22,19 +22,19 @@ export class RoutingLog {
         this.add({ type: 'routed_to_load_balance' });
     }
 
-    modelSelected(provider: string, model: string) {
+    modelSelected(provider: SupportedLLMs, model: ModelForProvider<SupportedLLMs>) {
         this.add({ type: 'model_selected', provider, model });
     }
 
-    routedToFallback(newProvider: string, newModel: string) {
+    routedToFallback(newProvider: SupportedLLMs, newModel: ModelForProvider<SupportedLLMs>) {
         this.add({ type: 'routed_to_fallback', newProvider, newModel });
     }
 
-    routedToDefault(provider: string, model: string) {
+    routedToDefault(provider: SupportedLLMs, model: ModelForProvider<SupportedLLMs>) {
         this.add({ type: 'routed_to_default', provider, model });
     }
 
-    routedToSpecified(provider: string, model: string) {
+    routedToSpecified(provider: SupportedLLMs, model: ModelForProvider<SupportedLLMs>) {
         this.add({ type: 'routed_to_specified', provider, model });
     }
 

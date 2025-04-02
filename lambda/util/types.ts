@@ -43,8 +43,8 @@ export type RoutingConfig = {
 export type CallLLMArgs = {
     history: InternalMessage[];
     prompt: string;
-    provider: ProviderModel['provider'];
-    model: string;
+    provider: SupportedLLMs;
+    model: ModelForProvider<SupportedLLMs>;
     log: RoutingLogObject;
 }
 
@@ -53,7 +53,7 @@ export type RouteRequestArgs = {
     prompt: string;
     log: RoutingLogObject;
     provider?: SupportedLLMs;
-    model?: string;
+    model?: ModelForProvider<SupportedLLMs>;
     metadata?: RequestMetadata;
     condition?: RoutingCondition;
 }
@@ -62,7 +62,7 @@ export type ParsedRequestData = {
     threadID: string;
     prompt: string;
     provider?: SupportedLLMs;
-    model?: string;
+    model?: ModelForProvider<SupportedLLMs>;
     userId?: string;
 }
 
@@ -74,7 +74,7 @@ export interface RoutingLog {
 export type RoutingEvent = 
     | { type: 'condition_match'; condition: string }
     | { type: 'routed_to_load_balance' }
-    | { type: 'model_selected'; provider: string; model: string }
+    | { type: 'model_selected'; provider: SupportedLLMs; model: string }
     | { type: 'routed_to_fallback'; newProvider: string; newModel: string }
     | { type: 'routed_to_default'; provider: string; model: string }
     | { type: 'routed_to_specified'; provider: string; model: string }

@@ -1,11 +1,10 @@
 import { SYSTEM_PROMPT } from './constants';
 import { TokenJS } from 'token.js';
-import { MODELS } from './constants';
 import { CallLLMArgs } from './types';
 import type { CompletionResponse } from 'token.js';
 import { SecretsManagerClient, GetSecretValueCommand } from "@aws-sdk/client-secrets-manager";
-import { RoutingLog } from './routingLog';
 import { RoutingLog as RoutingLogType } from './types';
+import { SupportedLLMs, ModelForProvider } from './types';
 
 const SECRET_NAME = 'llm-provider-api-keys';
 
@@ -26,7 +25,7 @@ async function loadApiKeys() {
 }
 
 export default async function callLLM({ history, prompt, provider, model, log }: CallLLMArgs):
-    Promise<{ text: string, usage: CompletionResponse['usage'], provider: string, model: string, routingLog: RoutingLogType }> {
+    Promise<{ text: string, usage: CompletionResponse['usage'], provider: SupportedLLMs, model: ModelForProvider<typeof provider>, log: RoutingLogType }> {
 
     try {
         await loadApiKeys();
@@ -40,8 +39,8 @@ export default async function callLLM({ history, prompt, provider, model, log }:
         const tokenjs = new TokenJS();
 
         const response = await tokenjs.chat.completions.create({
-            provider: provider as any,
-            model: model || MODELS[provider][0],
+            provider: provider,
+            model: model,
             messages: [
                 { role: 'system', content: process.env.SYSTEM_PROMPT || SYSTEM_PROMPT },
                 ...history,
@@ -59,7 +58,7 @@ export default async function callLLM({ history, prompt, provider, model, log }:
             usage: response.usage,
             provider: provider,
             model: model,
-            routingLog: log.getLog()
+            log: log.getLog()
         }
     } catch (error) {
         console.error(`Error in ${provider} call:`, error);
