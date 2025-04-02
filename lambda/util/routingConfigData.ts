@@ -5,6 +5,7 @@ export const routingConfig: RoutingConfig = {
   fallbackOnStatus: [500, 503, 429, 401, 403],
   conditions: [
     {
+      name: 'pro-users',
       query: (meta) => meta.userType === 'pro',
       loadBalance: [
         { provider: 'openai', model: 'gpt-4', weight: 0.7 },
@@ -13,6 +14,7 @@ export const routingConfig: RoutingConfig = {
       fallbackModel: { provider: 'openai', model: 'gpt-3.5-turbo' }
     },
     {
+      name: 'eu-users',
       query: (meta) => meta.region === 'eu',
       loadBalance: [
         { provider: 'gemini', model: 'gemini-2.0-flash-001', weight: 1 },
