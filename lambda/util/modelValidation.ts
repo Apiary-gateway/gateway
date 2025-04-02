@@ -1,17 +1,19 @@
 import { MODELS } from './constants';
-import { SupportedLLMs, AllModels } from './types';
+import { SupportedLLMs } from './types';
 
 export function isValidModelForProvider(
   provider: string | undefined,
   model: string | undefined
 ): boolean {
   if (!provider || !model) return false;
-  if (!(provider in MODELS)) return false;
-
-  const validModels = MODELS[provider as SupportedLLMs];
-  return (validModels as readonly string[]).includes(model);
+  if (!isValidProvider(provider)) {
+    return false;
+  } else {
+    const validModels = MODELS[provider];
+    return (validModels as readonly string[]).includes(model);
+  }
 }
 
-export function validateModel({ provider, model }: { provider?: string, model?: string }): boolean {
-    return isValidModelForProvider(provider, model);
+function isValidProvider(provider: string): provider is SupportedLLMs {
+    return Object.keys(MODELS).includes(provider as SupportedLLMs);
 }
