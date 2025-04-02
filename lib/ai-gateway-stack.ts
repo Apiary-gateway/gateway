@@ -20,6 +20,7 @@ import {
   RemovalPolicy,
   SecretValue,
   Resource,
+  CustomResource,
 } from 'aws-cdk-lib';
 import * as cr from 'aws-cdk-lib/custom-resources';
 import { timeStamp } from 'console';
@@ -185,6 +186,32 @@ export class AiGatewayStack extends Stack {
       value: `${vectorCollection.attrId}`,
       exportName: 'OpenSearchCollectionAttrId',
     });
+
+    const createVectorIndexFn = new lambdaNode.NodejsFunction(this, 'CreateVectorIndexFunction', {
+      entry: 'lambda/vectorIndex.ts',
+      handler: 'handler',
+      runtime: lambda.Runtime.NODEJS_18_X,
+      timeout: Duration.seconds(30),
+      role: semanticCacheLambdaRole,
+      bundling: {
+        format: lambdaNode.OutputFormat.CJS,
+        externalModules: ['aws-sdk'],
+      },
+      environment: {
+        OPENSEARCH_ENDPOINT: vectorCollection.attrCollectionEndpoint,
+        OPENSEARCH_INDEX: 'semantic-cache-index',
+      },
+    });
+
+    new CustomResource(this, 'CreateVectorIndex', {
+      serviceToken: createVectorIndexFn.functionArn,
+      serviceTimeout: Duration.seconds(900), // 15 min
+      // should invoke Lambda again if either of these properties change
+      properties: {
+        collectionName: vectorCollection.name,
+        indexName: 'semantic-cache-index',
+      },
+    });
     // SEMANTIC CACHE ITEMS END
 
     // Secrets Manager for API Keys
@@ -344,7 +371,7 @@ export class AiGatewayStack extends Stack {
       },
     });
 
-    // API Gateway with CORS
+    // API Gateway with Cloudwatch logs
     const apiGatewayLogRole = new iam.Role(this, 'ApiGatewayCloudWatchRole', {
       assumedBy: new iam.ServicePrincipal('apigateway.amazonaws.com'),
       managedPolicies: [
