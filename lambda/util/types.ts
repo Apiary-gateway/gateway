@@ -1,4 +1,5 @@
 import { MODELS } from "./constants";
+import { RoutingLog as RoutingLogObject } from "./routingLog";
 
 export type InternalMessage = {
     threadID?: string;
@@ -26,6 +27,7 @@ export type RequestMetadata = {
 };
 
 export type RoutingCondition = {
+    name: string;
     query: (meta: RequestMetadata) => boolean;
     loadBalance: WeightedProviderModel[];
     fallbackModel?: ProviderModel;
@@ -43,11 +45,13 @@ export type CallLLMArgs = {
     prompt: string;
     provider: ProviderModel['provider'];
     model: string;
+    log: RoutingLogObject;
 }
 
 export type RouteRequestArgs = {
     history: InternalMessage[];
     prompt: string;
+    log: RoutingLogObject;
     provider?: SupportedLLMs;
     model?: string;
     metadata?: RequestMetadata;
@@ -63,16 +67,15 @@ export type ParsedRequestData = {
 }
 
 export interface RoutingLog {
-    requestId: string;
-    timestamp: number;
+    timestamp: string;
     events: RoutingEvent[];
 }
 
 export type RoutingEvent = 
-    | { type: 'condition_match'; conditionName: string; metaField: string; metaValue: string }
-    | { type: 'load_balance' }
-    | { type: 'model_selected'; provider: string; model: string; weight: number }
+    | { type: 'condition_match'; condition: string }
+    | { type: 'routed_to_load_balance' }
+    | { type: 'model_selected'; provider: string; model: string }
     | { type: 'routed_to_fallback'; newProvider: string; newModel: string }
     | { type: 'routed_to_default'; provider: string; model: string }
     | { type: 'routed_to_specified'; provider: string; model: string }
-    | { type: 'routing_error'; error: string }
+    | { type: 'routing_error'; error: string; statusCode?: number };
