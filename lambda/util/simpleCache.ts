@@ -6,10 +6,8 @@ import {
 import type { CompletionResponse } from 'token.js';
 
 // TODOS
-// include cache hit or miss header in response from `router`
-// format cached response better - ex. tokens used = 0
 // add to README - optional `userId` field in request body for cache partitioning
-// add configuration to `router` function to conditionally check just simple cache or both simple & semantic
+// add configuration to `callLLM` function to conditionally check just simple cache or both simple & semantic
 
 const dynamoClient = new DynamoDBClient();
 const CACHE_TABLE_NAME = process.env.CACHE_TABLE_NAME || '';
@@ -53,7 +51,7 @@ export async function checkSimpleCache(
   const command = new GetItemCommand(input);
   const result = await dynamoClient.send(command);
   // console.log('fetched from Dynamo: ', result.Item ? result.Item.llmResponse : 'no cache hit');
-  return result.Item ? result.Item.llmResponse : null;
+  return result.Item ? result.Item.llmResponse.S?.trim() : null;
 }
 
 // Function to store result in cache

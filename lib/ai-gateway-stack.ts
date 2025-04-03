@@ -172,6 +172,14 @@ export class AiGatewayStack extends Stack {
     //     'aoss:DescribeCollection',
     //     'aoss:ListCollections',
     //     'aoss:APIAccessAll',
+    //     'aoss:CreateIndex',
+    //     'aoss:DescribeIndex',
+    //     'aoss:DeleteIndex',
+    //     'aoss:UpdateIndex',
+    //     'aoss:CreateCollectionItems',
+    //     'aoss:DescribeCollectionItems',
+    //     'aoss:UpdateCollectionItems',
+    //     'aoss:DeleteCollectionItems',
     //   ],
     //   // TODO: limit this more to specific resources?
     //   resources: [
@@ -225,6 +233,32 @@ export class AiGatewayStack extends Stack {
     // });
 
     // createVectorIndex.node.addDependency(vectorCollection);
+
+    // const deleteDocumentFn = new lambdaNode.NodejsFunction(this, 'DeleteDocumentFunction', {
+    //   entry: 'lambda/deleteDocument.ts',
+    //   handler: 'handler',
+    //   runtime: lambda.Runtime.NODEJS_18_X,
+    //   timeout: Duration.seconds(30),
+    //   role: semanticCacheLambdaRole,
+    //   bundling: {
+    //     format: lambdaNode.OutputFormat.CJS,
+    //     externalModules: ['aws-sdk'],
+    //   },
+    //   environment: {
+    //     OPENSEARCH_ENDPOINT: vectorCollection.attrCollectionEndpoint,
+    //     OPENSEARCH_INDEX: 'semantic-cache-index',
+    //   },
+    // });
+
+    //  // Role for EventBridge Scheduler to invoke deleteDocumentFn Lambda
+    //  const schedulerInvokeRole = new iam.Role(this, 'SchedulerInvokeRole', {
+    //   assumedBy: new iam.ServicePrincipal('scheduler.amazonaws.com'),
+    // });
+
+    // schedulerInvokeRole.addToPolicy(new iam.PolicyStatement({
+    //   actions: ['lambda:InvokeFunction'],
+    //   resources: [deleteDocumentFn.functionArn],
+    // }));
     // SEMANTIC CACHE ITEMS END
 
     // Secrets Manager for API Keys
@@ -362,10 +396,18 @@ export class AiGatewayStack extends Stack {
         SYSTEM_PROMPT: 'You are a helpful assistant. You answer in cockney.',
         LOG_BUCKET_NAME: logBucket.bucketName,
         CACHE_TABLE_NAME: aiGatewayCacheTable.tableName,
+        // comment out lines below if not using semantic cache
         // OPENSEARCH_ENDPOINT: vectorCollection.attrCollectionEndpoint,
-        OPENSEARCH_INDEX: 'semantic-cache-index',
+        // OPENSEARCH_INDEX: 'semantic-cache-index',
+        // DELETE_DOCUMENT_LAMBDA_ARN: deleteDocumentFn.functionArn,
+        // SCHEDULER_ROLE_ARN: schedulerInvokeRole.roleArn,
       },
     });
+
+    routerFn.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['scheduler:CreateSchedule', 'iam:PassRole'],
+      resources: ['*']
+    }))
 
     // Logs Lambda
     const logsFn = new lambdaNode.NodejsFunction(this, 'LogsFunction', {

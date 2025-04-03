@@ -5,6 +5,8 @@ import { HttpRequest } from '@aws-sdk/protocol-http';
 import { SignatureV4 } from '@aws-sdk/signature-v4';
 import { defaultProvider } from '@aws-sdk/credential-provider-node';
 import { Sha256 } from '@aws-crypto/sha256-js';
+import { SchedulerClient, CreateScheduleCommand } from "@aws-sdk/client-scheduler";
+import { v4 as uuidv4 } from "uuid";
 
 // TODO
 // Check supported Bedrock regions and validate regional support in CDK stack
@@ -23,6 +25,7 @@ const bedrock = new BedrockRuntimeClient({
   // should specify the region where the Lambda is running
   region,
 });
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
 export async function getEmbedding(prompt: string): Promise<number[]> {
   const command = new InvokeModelCommand({
@@ -98,7 +101,9 @@ export async function addToSemanticCache(
       timestamp: new Date().toISOString()
     });
 
-    // console.log('successfully added to semantic cache: ', JSON.stringify(response));
+    await scheduleDelete(response._id);
+
+    console.log('successfully added to semantic cache: ', JSON.stringify(response));
   } catch (err) {
     if (err instanceof AxiosError) {
       console.log('Axios error in addToSemanticCache: ', err.response?.data);
@@ -106,6 +111,36 @@ export async function addToSemanticCache(
       console.log('error in addToSemanticCache: ', err);
     }
   }
+}
+
+async function scheduleDelete(documentId: string) {
+  console.log(`scheduling delete for document: ${documentId}`);
+  
+  const scheduler = new SchedulerClient({});
+
+  let runAt = new Date(Date.now() + CACHE_TTL_MS).toISOString();
+  const runAtFormatMatch = runAt.match(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/);
+  if (runAtFormatMatch) {
+    runAt = runAtFormatMatch[0];
+  };
+
+  const command = new CreateScheduleCommand({
+    Name: `delete-doc-${uuidv4()}`,
+    ScheduleExpression: `at(${runAt})`,
+    FlexibleTimeWindow: { Mode: "OFF" },
+    Target: {
+      Arn: process.env.DELETE_DOCUMENT_LAMBDA_ARN,
+      RoleArn: process.env.SCHEDULER_ROLE_ARN,
+      Input: JSON.stringify({ documentId }),
+    },
+  });
+
+  const response = await scheduler.send(command);
+  console.log(`Document scheduled for deletion. Scheduler response: ${JSON.stringify(response)}`);
+  
+  return {
+    message: `Document scheduled for deletion. Scheduler response: ${JSON.stringify(response)}`,
+  };
 }
 
 function getFilters(  
@@ -157,7 +192,7 @@ async function signedPost(path: string, body: object) {
     return response.data;
   } catch (err) {
     if (err instanceof AxiosError) {
-      console.error('Axios error data: ', err.response?.data);
+      console.error('Response status code: ', err.response?.status, 'Axios error data: ', err.response?.data);
     } else {
       console.error('An error occurred: ', err);
     }
