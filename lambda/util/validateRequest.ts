@@ -1,40 +1,37 @@
-import { FullRequestSchema, RequestBodySchema } from './schemas/requestSchema';
-import { z } from 'zod';
+import { FullRequestSchema, RequestBodySchema, RequestPayload } from './schemas/requestSchema';
 
-type ValidationResult =
-  | {
-      success: true;
-      data: z.infer<typeof RequestBodySchema>;
-    }
-  | {
-      success: false;
-      error: string;
-    };
-
-export function validateRequest(event: unknown): ValidationResult {
-    const result = FullRequestSchema.safeParse(event);
-    if (!result.success) {
-        return { success: false, error: 'Invalid request format' };
+export function validateRequest(event: unknown) {
+    const fullParse = FullRequestSchema.safeParse(event);
+    if (!fullParse.success) {
+        console.log('Invalid request format:', fullParse.error);
+        throw new Error('Invalid request format')
     }
 
     let parsedBody: unknown;
 
     try {
-        parsedBody = typeof result.data.body === 'string' ? JSON.parse(result.data.body) : result.data.body;
+        parsedBody = typeof fullParse.data.body === 'string' ? JSON.parse(fullParse.data.body) : fullParse.data.body;
     } catch (error) {
-        return { success: false, error: 'Invalid request body' };
+        console.log('Error parsing request body:', error);
+        throw new Error('Error parsing request body');
     }
 
-    const parsed = RequestBodySchema.safeParse(parsedBody);
+    const body = RequestBodySchema.safeParse(parsedBody);
 
-    if (!parsed.success) {
-        return { success: false, error: parsed.error.message };
+    if (!body.success) {
+        console.log('Validation error:', body.error.format())
+        throw new Error('Request validation error');
     }
 
-    return { success: true, data: parsed.data };
+    return body.data;
 }
 
-export function requestIsValid(event: unknown): event is { headers: Record<string, string>; body: z.infer<typeof RequestBodySchema> } {
-    return validateRequest(event).success;
+export function requestIsValid(event: unknown): event is { headers: Record<string, string>; body: RequestPayload } {
+    try {
+        validateRequest(event);
+        return true;
+    } catch {
+        return false;
+    }
 }
 
