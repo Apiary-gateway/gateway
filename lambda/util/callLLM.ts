@@ -104,9 +104,10 @@ export default async function callLLM({ history, prompt, provider, model, log, u
         });
 
         const responseText = response.choices?.[0]?.message?.content || '';
-        // don't await - no need to wait here
+
         addToSimpleCache(prompt, responseText, userId, provider, model);
-        // addToSemanticCache(
+        // remove await when done testing
+        // await addToSemanticCache(
         //   requestEmbedding,
         //   prompt,
         //   responseText,
