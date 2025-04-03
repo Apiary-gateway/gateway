@@ -39,7 +39,8 @@ export const handler = async (event: CdkCustomResourceEvent, context: Context) =
   try {
     const indexExists = await axios.request({ method, url: indexUrl, headers });
     console.log("Index already exists, response status:", indexExists.status);
-    await sendCfnResponse(event, context, 'SUCCESS', {message: 'Index already exists'});
+    // await sendCfnResponse(event, context, 'SUCCESS', {message: 'Index already exists'});
+    return {PhysicalResourceId: `Index-${indexName}`};
   } catch (err: unknown) {
     if (err instanceof AxiosError && err.response?.status === 404) {
       console.log(`Index '${indexName}' not found, creating...`);
@@ -111,14 +112,17 @@ export const handler = async (event: CdkCustomResourceEvent, context: Context) =
       });
 
       console.log("Index created: ", response.data);
-      await sendCfnResponse(event, context, 'SUCCESS', {message: 'Index created'});
+      // await sendCfnResponse(event, context, 'SUCCESS', {message: 'Index created'});
+      return {PhysicalResourceId: `Index-${indexName}`};
     } else {
       console.error("Error checking or creating index: ", err);
-      await sendCfnResponse(event, context, 'FAILED');
+      // await sendCfnResponse(event, context, 'FAILED');
+      throw err;
     }
   }
 };
 
+// Using Provider framework - shouldn't need this function anymore
 async function sendCfnResponse(
   event: CdkCustomResourceEvent, 
   context: Context, 
@@ -152,13 +156,14 @@ async function sendCfnResponse(
     method: "PUT",
     headers: {
       "content-type": "",
-      "content-length": responseBody.length
+      "content-length": Buffer.byteLength(responseBody)
     }
   };
 
   return new Promise<void>((resolve, reject) => {
     const request = https.request(options, (response) => {
       console.log("CloudFormation response status code: ", response.statusCode);
+      console.log("CloudFormation response: ", JSON.stringify(response));
       resolve();
     });
   
