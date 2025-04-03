@@ -1,5 +1,5 @@
-import { routingConfig } from './routingConfigData'
-import { CallLLMArgs, WeightedProviderModel, ProviderModel, RouteRequestArgs } from './types';
+import { routingConfig } from './config/routingConfigData'
+import { CallLLMArgs, WeightedProviderModel, ProviderModel, RouteRequestArgs, SupportedLLMs, ModelForProvider, RoutingLog as RoutingLogType } from './types';
 import callLLM from './callLLM';
 import { CompletionResponse } from 'token.js';
 import { getErrorStatusCode } from './errorHandling';
@@ -8,6 +8,7 @@ import { MODELS } from './constants';
 import { RoutingLog } from './routingLog';
 import { SupportedLLMs, ModelForProvider } from './types';
 import { RoutingLog as RoutingLogType } from './types';
+
 
 export async function routeRequest({ history, prompt, provider, model, metadata, userId }: Omit <RouteRequestArgs, 'log'>):
 Promise<{       
@@ -19,6 +20,7 @@ Promise<{
   simpleCacheHit?: boolean,
   semanticCacheHit?: boolean 
 }> {
+
     const log = new RoutingLog();
     const conditions = routingConfig.conditions || [];
 

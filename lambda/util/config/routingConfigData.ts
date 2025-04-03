@@ -1,4 +1,4 @@
-import { RoutingConfig } from './types';
+import { RoutingConfig } from '../types';
 
 export const routingConfig: RoutingConfig = {
   fallbackModel: { provider: 'anthropic', model: 'claude-3-5-haiku-20241022' },
