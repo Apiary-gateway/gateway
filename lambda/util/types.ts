@@ -46,6 +46,7 @@ export type CallLLMArgs = {
     provider: SupportedLLMs;
     model: ModelForProvider<SupportedLLMs>;
     log: RoutingLogObject;
+    userId?: string;
 }
 
 export type RouteRequestArgs = {
@@ -56,6 +57,7 @@ export type RouteRequestArgs = {
     model?: ModelForProvider<SupportedLLMs>;
     metadata?: RequestMetadata;
     condition?: RoutingCondition;
+    userId?: string;
 }
 
 export type ParsedRequestData = {

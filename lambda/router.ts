@@ -11,12 +11,6 @@ import //   logSuccessfulRequest,
 //   logFailedRequest,
 //   CommonLogData,
 './util/logger';
-import { addToSimpleCache, checkSimpleCache } from './util/simpleCache';
-import {
-  addToSemanticCache,
-  checkSemanticCache,
-  getEmbedding,
-} from './util/semanticCache';
 import { parse } from 'path';
 import { Logger } from './util/logger';
 
@@ -79,36 +73,8 @@ export const handler = async (event: unknown) => {
     // TODO
     // If cache is hit, we need to save the log into the database.
     // What is the response being send? How do we save it? Are we sending something in the header?
-    const simpleCacheResponse = await checkSimpleCache(
-      prompt,
-      userId,
-      provider,
-      model
-    );
-    if (simpleCacheResponse) {
-      return {
-        statusCode: 200,
-        body: JSON.stringify({
-          provider,
-          simpleCacheResponse,
-        }),
-      };
-    }
 
     // Same questions here.
-
-    const requestEmbedding = await getEmbedding(prompt);
-    const semanticCacheResponse =
-      await checkSemanticCache(requestEmbedding, userId, provider, model);
-    if (semanticCacheResponse) {
-      return {
-        statusCode: 200,
-        body: JSON.stringify({
-          provider,
-          semanticCacheResponse,
-        }),
-    };
-    }
 
     const history = await getMessageHistory(threadID);
     const response = await routeRequest({
@@ -117,6 +83,7 @@ export const handler = async (event: unknown) => {
       provider,
       model,
       metadata,
+      userId
     });
 
     await saveMessages(prompt, response.text, threadID);
@@ -126,19 +93,12 @@ export const handler = async (event: unknown) => {
     //   RawResponse: JSON.stringify(response),
     // });
 
-    // don't await - no need to wait here
-    addToSimpleCache(prompt, response.text, userId, provider, model);
-    addToSemanticCache(
-      requestEmbedding,
-      prompt,
-      response.text,
-      userId,
-      provider,
-      model
-    );
-
     return {
       statusCode: 200,
+      headers: {
+        "simple-cache": `${response.simpleCacheHit ? 'HIT' : 'MISS'}`,
+        "semantic-cache": `${response.semanticCacheHit ? 'HIT' : 'MISS'}`,
+      },
       body: JSON.stringify({
         threadID,
         response,

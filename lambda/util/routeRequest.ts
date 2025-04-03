@@ -6,10 +6,19 @@ import { getErrorStatusCode } from './errorHandling';
 import { FALLBACK_STATUS_CODES } from './constants';
 import { MODELS } from './constants';
 import { RoutingLog } from './routingLog';
+import { SupportedLLMs, ModelForProvider } from './types';
+import { RoutingLog as RoutingLogType } from './types';
 
-
-export async function routeRequest({ history, prompt, provider, model, metadata }: Omit <RouteRequestArgs, 'log'>):
-Promise<{ text: string, usage: CompletionResponse['usage'] }> {
+export async function routeRequest({ history, prompt, provider, model, metadata, userId }: Omit <RouteRequestArgs, 'log'>):
+Promise<{       
+  text: string, 
+  usage: CompletionResponse['usage'], 
+  provider: SupportedLLMs, 
+  model: ModelForProvider<SupportedLLMs>, 
+  log: RoutingLogType,
+  simpleCacheHit?: boolean,
+  semanticCacheHit?: boolean 
+}> {
     const log = new RoutingLog();
     const conditions = routingConfig.conditions || [];
 
@@ -32,7 +41,8 @@ Promise<{ text: string, usage: CompletionResponse['usage'] }> {
               prompt, 
               provider: selectedModel.provider, 
               model: selectedModel.model,
-              log
+              log,
+              userId
             })
   
           } catch (error) {
@@ -64,17 +74,17 @@ async function handleRoutingError(
   }
 }
 
-async function routeToDefault({ history, prompt, condition, log }: RouteRequestArgs) {
+async function routeToDefault({ history, prompt, condition, log, userId }: RouteRequestArgs) {
   try {
     const { provider, model } = routingConfig.defaultModel;
     log.routedToDefault(provider, model);
-    return await callLLM({ history, prompt, provider, model, log });
+    return await callLLM({ history, prompt, provider, model, log, userId });
   } catch (error) {
     return handleRoutingError(error, history, prompt, log, condition);
   }
 }
 
-async function routeToFallback({ history, prompt, condition, log }: RouteRequestArgs) {
+async function routeToFallback({ history, prompt, condition, log, userId }: RouteRequestArgs) {
   const fallbackModel = condition?.fallbackModel || routingConfig.fallbackModel;
   log.routedToFallback(fallbackModel.provider, fallbackModel.model);
   const result = await callLLM({ 
@@ -82,16 +92,17 @@ async function routeToFallback({ history, prompt, condition, log }: RouteRequest
       prompt, 
       provider: fallbackModel.provider, 
       model: fallbackModel.model,
-      log
+      log,
+      userId
   });
 
   return result;
 }
 
-async function routeToSpecified({ history, prompt, provider, model, log }: CallLLMArgs) {
+async function routeToSpecified({ history, prompt, provider, model, log, userId }: CallLLMArgs) {
   try {
     log.routedToSpecified(provider, model);
-    return await callLLM({ history, prompt, provider, model, log });
+    return await callLLM({ history, prompt, provider, model, log, userId });
   } catch (error) {
     return handleRoutingError(error, history, prompt, log);
   }
