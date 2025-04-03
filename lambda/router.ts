@@ -29,10 +29,6 @@ export const handler = async (event: unknown) => {
         const response = await routeRequest({ history, prompt, provider, model, metadata });
         
         await saveMessages(prompt, response.text, threadID); 
-        const history = await getMessageHistory(threadID);
-        const response = await routeRequest({ history, prompt, provider, model, metadata });
-        
-        await saveMessages(prompt, response.text, threadID); 
 
         // await logSuccessfulRequest({
         //     ...logData,

@@ -64,19 +64,19 @@ export default async function callLLM({ history, prompt, provider, model, log, u
         }
       }; 
       
-      const requestEmbedding = await getEmbedding(prompt);
-      const semanticCacheResponse =
-        await checkSemanticCache(requestEmbedding, userId, provider, model);
-      if (semanticCacheResponse) {
-        return {
-          text: semanticCacheResponse || '',
-          usage: CACHE_USAGE_OBJECT,
-          provider: provider,
-          model: model,
-          log: log.getLog(),
-          semanticCacheHit: true
-        }
-      };
+      // const requestEmbedding = await getEmbedding(prompt);
+      // const semanticCacheResponse =
+      //   await checkSemanticCache(requestEmbedding, userId, provider, model);
+      // if (semanticCacheResponse) {
+      //   return {
+      //     text: semanticCacheResponse || '',
+      //     usage: CACHE_USAGE_OBJECT,
+      //     provider: provider,
+      //     model: model,
+      //     log: log.getLog(),
+      //     semanticCacheHit: true
+      //   }
+      // };
       
         await loadApiKeys();
 
@@ -106,14 +106,14 @@ export default async function callLLM({ history, prompt, provider, model, log, u
         const responseText = response.choices?.[0]?.message?.content || '';
         // don't await - no need to wait here
         addToSimpleCache(prompt, responseText, userId, provider, model);
-        addToSemanticCache(
-          requestEmbedding,
-          prompt,
-          responseText,
-          userId,
-          provider,
-          model
-        );
+        // addToSemanticCache(
+        //   requestEmbedding,
+        //   prompt,
+        //   responseText,
+        //   userId,
+        //   provider,
+        //   model
+        // );
 
         return {
             text: responseText,
