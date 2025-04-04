@@ -9,6 +9,7 @@ import { isValidModelForProvider } from "./util/modelValidation";
 //     CommonLogData,
 // } from './util/logger';
 import { parse } from 'path';
+import { calculateCost } from "./util/calculateCost";
 
 export const handler = async (event: unknown) => {
     // const logData: CommonLogData = {
@@ -25,39 +26,39 @@ export const handler = async (event: unknown) => {
       const { threadID, prompt, provider, model, userId } = extractRequestData(payload);
       const metadata = extractRequestMetadata(event, payload);
 
-        const history = await getMessageHistory(threadID);
-        const response = await routeRequest({ history, prompt, provider, model, metadata });
-        
-        await saveMessages(prompt, response.text, threadID); 
+      const history = await getMessageHistory(threadID);
+      const response = await routeRequest({ history, prompt, provider, model, metadata });
+      
+      await saveMessages(prompt, response.text, threadID); 
 
-        // await logSuccessfulRequest({
-        //     ...logData,
-        //     RawResponse: JSON.stringify(response),
-        // });
-        console.log(
-            userId,
-            threadID,
-            response.text, 
-            response.provider, 
-            response.model, 
-            response.log, 
-            response.usage?.completion_tokens, 
-            response.usage?.prompt_tokens,
-            // response.simpleCacheHit,
-            // response.semanticCacheHit
-        )
+      // await logSuccessfulRequest({
+      //     ...logData,
+      //     RawResponse: JSON.stringify(response),
+      // });
+      console.log(
+          userId,
+          threadID,
+          response.text, 
+          response.provider, 
+          response.model, 
+          response.log, 
+          response.usage?.completion_tokens, 
+          response.usage?.prompt_tokens,
+          // response.simpleCacheHit,
+          // response.semanticCacheHit
+      )
 
-        return {
-            statusCode: 200,
-            headers: {
-              "simple-cache": `${response.simpleCacheHit ? 'HIT' : 'MISS'}`,
-              "semantic-cache": `${response.semanticCacheHit ? 'HIT' : 'MISS'}`,
-            },
-            body: JSON.stringify({
-                threadID,
-                response
-            }),
-        };
+      return {
+          statusCode: 200,
+          headers: {
+            "simple-cache": `${response.simpleCacheHit ? 'HIT' : 'MISS'}`,
+            "semantic-cache": `${response.semanticCacheHit ? 'HIT' : 'MISS'}`,
+          },
+          body: JSON.stringify({
+              threadID,
+              response
+          }),
+      };
     } catch (error) {
         console.error(error);
 

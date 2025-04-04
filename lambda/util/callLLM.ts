@@ -11,6 +11,7 @@ import {
   checkSemanticCache,
   getEmbedding,
 } from './semanticCache';
+import { calculateCost } from './calculateCost';
 
 const SECRET_NAME = 'llm-provider-api-keys';
 const CACHE_USAGE_OBJECT = {
@@ -106,8 +107,7 @@ export default async function callLLM({ history, prompt, provider, model, log, u
         const responseText = response.choices?.[0]?.message?.content || '';
 
         addToSimpleCache(prompt, responseText, userId, provider, model);
-        // remove await when done testing
-        // await addToSemanticCache(
+        // addToSemanticCache(
         //   requestEmbedding,
         //   prompt,
         //   responseText,
@@ -115,6 +115,17 @@ export default async function callLLM({ history, prompt, provider, model, log, u
         //   provider,
         //   model
         // );
+
+        let cost;
+        if (response.usage?.prompt_tokens && response.usage.completion_tokens) {
+          cost = calculateCost(
+            provider, 
+            model, 
+            response.usage.prompt_tokens, 
+            response.usage.completion_tokens
+          );
+        }
+        console.log('cost: ', cost);
 
         return {
             text: responseText,
