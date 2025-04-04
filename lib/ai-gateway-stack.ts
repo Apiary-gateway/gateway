@@ -172,14 +172,6 @@ export class AiGatewayStack extends Stack {
     //     'aoss:DescribeCollection',
     //     'aoss:ListCollections',
     //     'aoss:APIAccessAll',
-    //     'aoss:CreateIndex',
-    //     'aoss:DescribeIndex',
-    //     'aoss:DeleteIndex',
-    //     'aoss:UpdateIndex',
-    //     'aoss:CreateCollectionItems',
-    //     'aoss:DescribeCollectionItems',
-    //     'aoss:UpdateCollectionItems',
-    //     'aoss:DeleteCollectionItems',
     //   ],
     //   // TODO: limit this more to specific resources?
     //   resources: [

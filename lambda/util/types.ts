@@ -81,3 +81,18 @@ export type RoutingEvent =
     | { type: 'routed_to_default'; provider: string; model: string }
     | { type: 'routed_to_specified'; provider: string; model: string }
     | { type: 'routing_error'; error: string; statusCode?: number };
+
+interface ModelCost {
+  input: number;
+  output: number;
+  inputSmallPrompt?: number;
+  inputLargePrompt?: number;
+  outputSmallPrompt?: number;
+  outputLargePrompt?: number;
+}
+
+export interface ModelCostType {
+  [provider: string]: {
+    [model: string]: ModelCost;
+  }
+}
