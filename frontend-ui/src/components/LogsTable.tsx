@@ -20,7 +20,10 @@ function LogsTable({
   onDetailsClick,
 }: LogsTableProps) {
   // Format timestamp to human-readable local date and time
-  const formatDateTime = (timestamp: string) => {
+  const formatDateTime = (timestamp: string | null | undefined) => {
+    if (!timestamp) {
+      return 'NA';
+    }
     return new Date(timestamp).toLocaleString();
   };
 
@@ -34,8 +37,6 @@ function LogsTable({
             <th>Status</th>
             <th>Model</th>
             <th>Provider</th>
-            <th>Tokens</th>
-            <th>Cost</th>
             <th>Details</th>
           </tr>
         </thead>
@@ -43,14 +44,12 @@ function LogsTable({
           {logs.map((log) => (
             <tr key={log.id}>
               <td>{formatDateTime(log.timestamp)}</td>
-              <td>{log.thread_ts}</td>
-              <td className={log.status === 'failure' ? 'status-error' : ''}>
-                {log.status}
+              <td>{log.thread_id || 'NA'}</td>
+              <td className={log.is_successful ? 'status-error' : ''}>
+                {log.success_reason || log.error_reason || 'NA'}
               </td>
-              <td>{log.model}</td>
-              <td>{log.provider}</td>
-              <td>{log.raw_response?.usage.total_tokens || 'NA'}</td>
-              <td>{log.cost}</td>
+              <td>{log.model || 'NA'}</td>
+              <td>{log.provider || 'NA'}</td>
               <td>
                 <button
                   className="details-button"

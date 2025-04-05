@@ -16,7 +16,7 @@ function App() {
       const logsResponse = await getLogs(token);
       const pageNumber = logsResponse.page;
       setLogsMap((prev) => new Map(prev).set(pageNumber, logsResponse.logs));
-      setNextToken(logsResponse.nextToken);
+      setNextToken(logsResponse.nextToken || null);
       setCurrentPage(pageNumber);
     } catch (error) {
       console.error(error);
@@ -40,10 +40,11 @@ function App() {
   };
 
   const handleDetailsClick = (log: LogEntry) => {
-    console.log({
-      prompt: log.raw_request?.body.prompt,
-      response: log.raw_response?.text,
-    });
+    console.log(log);
+    // console.log({
+    //   prompt: log.raw_request?.body.prompt,
+    //   response: log.raw_response?.text,
+    // });
   };
 
   const currentLogs = logsMap.get(currentPage) || [];
