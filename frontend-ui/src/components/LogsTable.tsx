@@ -45,7 +45,7 @@ function LogsTable({
             <tr key={log.id}>
               <td>{formatDateTime(log.timestamp)}</td>
               <td>{log.thread_id || 'NA'}</td>
-              <td className={log.is_successful ? 'status-error' : ''}>
+              <td className={!log.is_successful ? 'status-error' : ''}>
                 {log.success_reason || log.error_reason || 'NA'}
               </td>
               <td>{log.model || 'NA'}</td>

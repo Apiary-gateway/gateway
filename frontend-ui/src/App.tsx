@@ -14,6 +14,7 @@ function App() {
     setIsLoading(true);
     try {
       const logsResponse = await getLogs(token);
+      console.log(logsResponse.logs);
       const pageNumber = logsResponse.page;
       setLogsMap((prev) => new Map(prev).set(pageNumber, logsResponse.logs));
       setNextToken(logsResponse.nextToken || null);

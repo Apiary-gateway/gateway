@@ -35,7 +35,7 @@ export const handler = async (event: unknown) => {
 
     let successReason;
 
-    if (response.semanticCacheHit) {
+    if (response.simpleCacheHit) {
       successReason = 'SIMPLE_CACHE_HIT';
     } else if (response.semanticCacheHit) {
       successReason = 'SEMANTIC_CACHE_HIT';
@@ -43,7 +43,7 @@ export const handler = async (event: unknown) => {
       successReason = 'LLM_RESPONSE';
     }
 
-    logger.logSuccessData(
+    await logger.logSuccessData(
       response.model,
       response.provider,
       response.log,
@@ -65,7 +65,7 @@ export const handler = async (event: unknown) => {
     const errorMessage =
       error instanceof Error ? error.message : 'Unknown Error';
 
-    logger.logErrorData('Unknown Error Reason', errorMessage);
+    await logger.logErrorData('Unknown Error Reason', errorMessage);
     return {
       statusCode: 500,
       body: JSON.stringify({

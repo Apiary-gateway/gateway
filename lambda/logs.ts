@@ -59,6 +59,8 @@ const mapAthenaRow = (row: any) => {
 export const handler = async (
   event: APIGatewayProxyEvent
 ): Promise<APIGatewayProxyResult> => {
+  console.log('LOG_TABLE_NAME from env:', process.env.LOG_TABLE_NAME);
+
   try {
     const queryParams = event.queryStringParameters || {};
     const older = queryParams.older === 'true';
