@@ -8,7 +8,8 @@
     "build": "tsc",
     "watch": "tsc -w",
     "test": "jest",
-    "cdk": "cdk"
+    "cdk": "cdk",
+    "deploy-hotswap": "cd frontend-ui && npm run build && cd .. && npx cdk deploy --hotswap"
   },
   "devDependencies": {
     "@types/aws-lambda": "^8.10.148",

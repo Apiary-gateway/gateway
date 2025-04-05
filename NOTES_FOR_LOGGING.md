@@ -7,3 +7,5 @@
 4. There is no typing for `Response`, so we have to determine the `success_reason` in `router.ts`.
 
 5. Ideally we would want to take care of routing history within the logging mechanism.
+
+6. Now, 1 full request-response cycle is a unit, not individual hops.

@@ -650,9 +650,8 @@ export class AiGatewayStack extends Stack {
     new s3deploy.BucketDeployment(this, 'DeployFrontend', {
       sources: [
         s3deploy.Source.asset(
-          path.join(__dirname, '..', 'dist', 'frontend-ui')
-          // path.join(__dirname, '..', 'frontend-ui', 'dist')
-        ), // Updated path
+          path.join(__dirname, '..', 'frontend-ui', 'dist') // <-- correct path
+        ),
         s3deploy.Source.data('config.js', configJsContent),
       ],
       destinationBucket: frontendBucket,

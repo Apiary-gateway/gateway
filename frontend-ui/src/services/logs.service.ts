@@ -1,12 +1,16 @@
 import axios from 'axios';
 import { GetLogsResponseSchema, LogsResponse } from '../types/logs.types';
 
-const LOGS_BASE_URL =
-  // @ts-ignore
-  window?.LOGS_ENDPOINT ||
-  'https://h157xcj6t5.execute-api.us-east-2.amazonaws.com/dev/logs';
+const getLogsEndpoint = (): string => {
+  if (typeof window !== 'undefined' && 'LOGS_ENDPOINT' in window) {
+    return (window as any).LOGS_ENDPOINT;
+  }
+  alert('LOGS_ENDPOINT not configured');
+  throw new Error();
+};
 
 export const getLogs = async (token: string | null): Promise<LogsResponse> => {
+  const LOGS_BASE_URL = getLogsEndpoint();
   try {
     const { data } = await axios.get(`${LOGS_BASE_URL}`, {
       params: {
