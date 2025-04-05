@@ -36,7 +36,7 @@ body {
 
 .logs-table th,
 .logs-table td {
-  border: 1px solid #4b5563; /* Darker gray border */
+  border: 1px solid #4b5563;
   padding: 12px;
   text-align: left;
   color: #d1d5db;
@@ -50,21 +50,32 @@ body {
   text-align: center; /* Center the heading */
 }
 
+.status-success,
 .status-error {
-  color: #ef4444; /* Brighter red for visibility */
-  font-weight: 700; /* Bold text for emphasis */
-  font-style: italic; /* Italic for failure indication */
-  padding-left: 20px; /* Space for the icon */
-  display: inline-block; /* Ensure padding applies correctly */
+  align-items: center;
+  font-weight: 700;
+  font-style: italic;
+  border: none;
+  background-color: transparent;
+  padding-left: 0; /* or remove it */
+}
+
+.status-success::before,
+.status-error::before {
+  margin-right: 6px;
+  font-style: normal;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.status-success::before {
+  content: '✓'; /* Unicode U+2713 — Check mark */
+  color: #4ade80; /* Soft green */
 }
 
 .status-error::before {
-  content: '\2717'; /* Unicode for cross mark (✗) */
-  color: #f87171; /* Softer, less bright red */
-  font-style: normal; /* Non-italic cross */
-  font-weight: 700; /* Keep it bold */
-  margin-right: 6px; /* Space between icon and text */
-  line-height: 1; /* Keep it tight */
+  content: '✗'; /* Unicode U+2717 — Cross mark */
+  color: #f87171; /* Soft red */
 }
 
 .details-button {
