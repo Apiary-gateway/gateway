@@ -74,8 +74,14 @@ export const handler = async (
     const older = queryParams.older === 'true';
     const page = parseInt(queryParams.page || '1', 10);
     const nextToken = queryParams.nextToken || null;
+    let queryExecutionId = queryParams.queryExecutionId || null;
 
-    console.log('Request parameters:', { older, page, nextToken });
+    console.log('Request parameters:', {
+      older,
+      page,
+      nextToken,
+      queryExecutionId,
+    });
 
     if (isNaN(page) || page < 1) {
       return {
@@ -89,52 +95,54 @@ export const handler = async (
     let responseNextToken: string | null = null;
 
     if (older) {
-      const athenaQuery = `
-        SELECT 
-          id, timestamp, latency, is_successful, success_reason, error_reason,
-          model_routing_history, user_id, metadata, thread_id, provider, model,
-          cost, raw_request, raw_response, error_message
-        FROM ai_gateway_logs
-        ORDER BY date DESC, timestamp DESC
-      `;
+      if (!queryExecutionId) {
+        const athenaQuery = `
+          SELECT 
+            id, timestamp, latency, is_successful, success_reason, error_reason,
+            model_routing_history, user_id, metadata, thread_id, provider, model,
+            cost, raw_request, raw_response, error_message
+          FROM ai_gateway_logs
+          ORDER BY date DESC, timestamp DESC
+        `;
 
-      const startQuery = new StartQueryExecutionCommand({
-        QueryString: athenaQuery,
-        WorkGroup: ATHENA_WORKGROUP,
-        ResultConfiguration: {
-          OutputLocation: `s3://${LOG_BUCKET_NAME}/athena-results/`,
-        },
-        QueryExecutionContext: {
-          Database: ATHENA_DATABASE,
-        },
-      });
+        const startQuery = new StartQueryExecutionCommand({
+          QueryString: athenaQuery,
+          WorkGroup: ATHENA_WORKGROUP,
+          ResultConfiguration: {
+            OutputLocation: `s3://${LOG_BUCKET_NAME}/athena-results/`,
+          },
+          QueryExecutionContext: {
+            Database: ATHENA_DATABASE,
+          },
+        });
 
-      const queryExecution = await athenaClient.send(startQuery);
-      const queryExecutionId = queryExecution.QueryExecutionId!;
+        const queryExecution = await athenaClient.send(startQuery);
+        queryExecutionId = queryExecution.QueryExecutionId!;
+        let queryState: string | undefined;
+        do {
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+          const queryExecutionResult = await athenaClient.send(
+            new GetQueryExecutionCommand({ QueryExecutionId: queryExecutionId })
+          );
+          queryState = queryExecutionResult.QueryExecution?.Status?.State;
+        } while (queryState === 'RUNNING' || queryState === 'QUEUED');
 
-      let queryState: string | undefined;
-      do {
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-        const queryExecutionResult = await athenaClient.send(
-          new GetQueryExecutionCommand({ QueryExecutionId: queryExecutionId })
-        );
-        queryState = queryExecutionResult.QueryExecution?.Status?.State;
-      } while (queryState === 'RUNNING' || queryState === 'QUEUED');
-
-      if (queryState === 'FAILED') {
-        const errorDetails = await athenaClient.send(
-          new GetQueryExecutionCommand({ QueryExecutionId: queryExecutionId })
-        );
-        throw new Error(
-          'Athena query failed: ' +
-            errorDetails.QueryExecution?.Status?.StateChangeReason
-        );
+        if (queryState === 'FAILED') {
+          const errorDetails = await athenaClient.send(
+            new GetQueryExecutionCommand({ QueryExecutionId: queryExecutionId })
+          );
+          throw new Error(
+            'Athena query failed: ' +
+              errorDetails.QueryExecution?.Status?.StateChangeReason
+          );
+        }
       }
 
       const getQueryResultsInput: any = {
         QueryExecutionId: queryExecutionId,
         MaxResults: PAGE_SIZE + 1,
       };
+
       if (nextToken) {
         getQueryResultsInput.NextToken = nextToken;
       }
@@ -144,33 +152,43 @@ export const handler = async (
       );
       const rows = queryResults.ResultSet?.Rows || [];
 
-      logs = (!nextToken && rows.length > 0 ? rows.slice(1) : rows).map(
-        mapAthenaRow
-      );
-
+      logs = rows.length > 1 ? rows.slice(1).map(mapAthenaRow) : [];
       responseNextToken = queryResults.NextToken || null;
-    } else {
-      const clientLastKey = nextToken
-        ? JSON.parse(decodeURIComponent(nextToken))
-        : undefined;
 
-      const dynamoQuery = new QueryCommand({
-        TableName: LOG_TABLE_NAME,
-        KeyConditionExpression: 'PK = :pk',
-        ExpressionAttributeValues: {
-          ':pk': { S: 'LOG' },
-        },
-        Limit: PAGE_SIZE,
-        ExclusiveStartKey: clientLastKey,
-        ScanIndexForward: true,
-      });
-
-      const dynamoResult = await dynamoClient.send(dynamoQuery);
-      logs = dynamoResult.Items?.map(mapDynamoItem) || [];
-      responseNextToken = dynamoResult.LastEvaluatedKey
-        ? encodeURIComponent(JSON.stringify(dynamoResult.LastEvaluatedKey))
-        : null;
+      return {
+        statusCode: 200,
+        headers: CORS_HEADERS,
+        body: JSON.stringify({
+          logs,
+          page,
+          pageSize: PAGE_SIZE,
+          nextToken: responseNextToken,
+          queryExecutionId,
+        }),
+      };
     }
+
+    // DynamoDB fallback path
+    const clientLastKey = nextToken
+      ? JSON.parse(decodeURIComponent(nextToken))
+      : undefined;
+
+    const dynamoQuery = new QueryCommand({
+      TableName: LOG_TABLE_NAME,
+      KeyConditionExpression: 'PK = :pk',
+      ExpressionAttributeValues: {
+        ':pk': { S: 'LOG' },
+      },
+      Limit: PAGE_SIZE,
+      ExclusiveStartKey: clientLastKey,
+      ScanIndexForward: true,
+    });
+
+    const dynamoResult = await dynamoClient.send(dynamoQuery);
+    logs = dynamoResult.Items?.map(mapDynamoItem) || [];
+    responseNextToken = dynamoResult.LastEvaluatedKey
+      ? encodeURIComponent(JSON.stringify(dynamoResult.LastEvaluatedKey))
+      : null;
 
     return {
       statusCode: 200,
