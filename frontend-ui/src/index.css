@@ -327,9 +327,30 @@ body {
   word-break: break-word;
 }
 
+.json-field {
+  width: 100%;
+}
+
+.json-toggle-button {
+  background-color: #4b5563;
+  color: #d1d5db;
+  border: none;
+  padding: 4px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', monospace;
+  font-size: 12px;
+  margin-bottom: 8px;
+  transition: background-color 0.2s;
+}
+
+.json-toggle-button:hover {
+  background-color: #6b7280;
+}
+
 .json-content {
   margin: 0;
-  padding: 8px;
+  padding: 12px;
   background-color: #343541;
   border-radius: 4px;
   font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', monospace;
@@ -337,4 +358,82 @@ body {
   line-height: 1.5;
   white-space: pre-wrap;
   word-break: break-word;
+  border: 1px solid #4b5563;
+}
+
+.routing-history {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  background-color: #343541;
+  padding: 8px;
+  border-radius: 4px;
+  border: 1px solid #4b5563;
+}
+
+.routing-event {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background-color: #4b5563;
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+.event-type {
+  color: #9ca3af;
+  font-size: 12px;
+  text-transform: capitalize;
+}
+
+.event-detail {
+  color: #d1d5db;
+  font-size: 12px;
+}
+
+.event-arrow {
+  color: #9ca3af;
+  margin: 0 4px;
+}
+
+.prompt-value,
+.response-value {
+  white-space: pre-wrap;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', monospace;
+  font-size: 13px;
+  line-height: 1.5;
+  background-color: #343541;
+  padding: 12px;
+  border-radius: 4px;
+  border: 1px solid #4b5563;
+}
+
+.collapsible-toggle-button {
+  background-color: #4b5563;
+  color: #d1d5db;
+  border: none;
+  padding: 4px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', monospace;
+  font-size: 12px;
+  margin-bottom: 8px;
+  transition: background-color 0.2s;
+}
+
+.collapsible-toggle-button:hover {
+  background-color: #6b7280;
+}
+
+.collapsible-content {
+  white-space: pre-wrap;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', monospace;
+  font-size: 13px;
+  line-height: 1.5;
+  background-color: #343541;
+  padding: 12px;
+  border-radius: 4px;
+  border: 1px solid #4b5563;
+  margin-top: 8px;
 }
