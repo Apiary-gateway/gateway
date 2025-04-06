@@ -3,6 +3,8 @@ import { getLogsFromAthena, getLogsFromDynamo } from './services/logs.service'; 
 import LogsTable from './components/LogsTable'; // Adjust the import path
 import './index.css'; // Ensure CSS is imported
 import { LogEntry } from './types/logs.types';
+import Modal from './components/Modal';
+import LogDetail from './components/LogDetails';
 
 function App() {
   const [showAthenaLogs, setShowAthenaLogs] = useState<boolean>(false);
@@ -19,6 +21,8 @@ function App() {
   >(null);
   const [currentPage, setCurrentPage] = useState<number>(0);
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
+  const [selectedLog, setSelectedLog] = useState<LogEntry | null>(null);
 
   const fetchLogsFromAthena = async () => {
     setIsLoading(true);
@@ -86,11 +90,13 @@ function App() {
   };
 
   const handleDetailsClick = (log: LogEntry) => {
-    console.log(log);
-    // console.log({
-    //   prompt: log.raw_request?.body.prompt,
-    //   response: log.raw_response?.text,
-    // });
+    setSelectedLog(log);
+    setIsModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setSelectedLog(null);
   };
 
   const currentLogs = showAthenaLogs
@@ -107,10 +113,12 @@ function App() {
 
   return (
     <div className="app-container">
-      <h1>AI GATEWAY LOGS ({showAthenaLogs ? 'Athena' : 'Dynamo'})</h1>
-      <button className="toggle-button" onClick={handleToggleLogs}>
-        {showAthenaLogs ? 'Show Dynamo Logs' : 'Show Athena Logs'}
-      </button>
+      <header className="app-header">
+        <h1>AI GATEWAY LOGS ({showAthenaLogs ? 'Athena' : 'Dynamo'})</h1>
+        <button className="toggle-button" onClick={handleToggleLogs}>
+          {showAthenaLogs ? 'Show Dynamo Logs' : 'Show Athena Logs'}
+        </button>
+      </header>
       <LogsTable
         logs={currentLogs || []}
         pageNumbers={pageNumbers}
@@ -124,6 +132,11 @@ function App() {
         <div className="loading-overlay">
           <div className="spinner"></div>
         </div>
+      )}
+      {isModalOpen && selectedLog && (
+        <Modal onClose={handleCloseModal}>
+          <LogDetail log={selectedLog} />
+        </Modal>
       )}
     </div>
   );

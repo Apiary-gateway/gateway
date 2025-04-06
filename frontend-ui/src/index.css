@@ -174,10 +174,14 @@ body {
   }
 }
 
+.app-header {
+  position: relative;
+}
+
 .toggle-button {
-  position: fixed;
+  position: absolute;
   right: 16px;
-  top: 16px;
+  top: -16px;
   padding: 8px 16px;
   background-color: #4caf50;
   color: white;
@@ -191,4 +195,146 @@ body {
 
 .toggle-button:hover {
   background-color: #45a049;
+}
+
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(1px);
+  z-index: 1000;
+  display: flex;
+  justify-content: flex-end;
+  align-items: stretch;
+  opacity: 0;
+  animation: fadeIn 0.3s forwards;
+}
+
+.modal-content {
+  background-color: #40414f;
+  color: #d1d5db;
+  width: 50%;
+  max-width: 600px;
+  height: 100%;
+  box-shadow: -4px 0 12px rgba(0, 0, 0, 0.4);
+  padding: 24px;
+  overflow-y: auto;
+  font-family: 'Inter', 'Helvetica', 'Arial', sans-serif;
+  transform: translateX(100%);
+  animation: slideInRight 0.3s forwards;
+  position: relative;
+}
+
+.modal-close-button {
+  background: none;
+  border: none;
+  color: #9ca3af;
+  font-size: 18px;
+  position: absolute;
+  top: 16px;
+  right: 24px;
+  cursor: pointer;
+}
+
+.modal-close-button:hover {
+  color: #ffffff;
+}
+
+.modal-overlay.closing {
+  animation: fadeOut 0.3s forwards;
+}
+
+.modal-content.closing {
+  animation: slideOutRight 0.3s forwards;
+}
+
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideOutRight {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes fadeOut {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+.log-detail-container {
+  padding: 24px;
+  color: #d1d5db;
+}
+
+.log-detail-container h2 {
+  margin: 0 0 24px 0;
+  color: #f3f4f6;
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.log-detail-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.log-detail-row {
+  display: flex;
+  border: 1px solid #4b5563;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.log-detail-label {
+  background-color: #4b5563;
+  padding: 12px 16px;
+  min-width: 180px;
+  font-weight: 600;
+  border-right: 1px solid #4b5563;
+}
+
+.log-detail-value {
+  flex: 1;
+  padding: 12px 16px;
+  background-color: #40414f;
+  word-break: break-word;
+}
+
+.json-content {
+  margin: 0;
+  padding: 8px;
+  background-color: #343541;
+  border-radius: 4px;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', monospace;
+  font-size: 13px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
 }

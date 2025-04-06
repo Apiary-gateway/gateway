@@ -82,8 +82,10 @@ function LogsTable({
         {pageNumbers.map((page) => (
           <button
             key={page}
-            className={`page-button ${page === currentPage ? 'active' : ''}`}
-            onClick={() => onPageSelect(page)}
+            className={`page-button ${
+              page === String(currentPage) ? 'active' : ''
+            }`}
+            onClick={() => onPageSelect(Number(page))}
           >
             {page}
           </button>
