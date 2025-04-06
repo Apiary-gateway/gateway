@@ -90,7 +90,10 @@ const ModelRoutingHistory = ({ history }: { history: any }) => {
     }
 
     // Filter out any invalid events
-    events = events.filter((event) => event && (event.type || event.provider));
+    events = events
+      .map((e) => JSON.parse(e))
+      .filter((event) => event && (event.type || event.provider));
+    console.log('events', events);
 
     if (events.length === 0) return null;
 
@@ -187,8 +190,9 @@ const LogDetail = ({ log }: LogDetailProps) => {
 
         {prompt && <CollapsibleField label="Prompt" value={prompt} />}
         {response && <CollapsibleField label="Response" value={response} />}
-
-        <ModelRoutingHistory history={log.model_routing_history} />
+        {log.model_routing_history && (
+          <ModelRoutingHistory history={log.model_routing_history} />
+        )}
 
         {logFields.map(({ key, label }) => {
           const value = formatValue(key, log[key as keyof LogEntry]);
