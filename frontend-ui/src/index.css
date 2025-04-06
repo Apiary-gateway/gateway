@@ -175,13 +175,19 @@ body {
 }
 
 .app-header {
-  position: relative;
+  display: flex;
+  align-items: center;
+  padding: 32px 8px;
+}
+
+.app-header h1 {
+  flex: 1; /* Let the H1 grow to fill space */
+  text-align: center; /* Center text in that space */
+  margin: 0; /* remove default h1 margin if necessary */
 }
 
 .toggle-button {
-  position: absolute;
-  right: 16px;
-  top: -16px;
+  margin-left: auto; /* Push the button to the far right */
   padding: 8px 16px;
   background-color: #4caf50;
   color: white;
