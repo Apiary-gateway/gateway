@@ -26,7 +26,6 @@ export type LogEntry = z.infer<typeof LogEntrySchema>;
 
 const LogResponseBodySchema = z.object({
   logs: z.array(LogEntrySchema),
-  page: z.number(),
   pageSize: z.number(),
   nextToken: z.string().optional().nullable(),
 });

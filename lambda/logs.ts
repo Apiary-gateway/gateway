@@ -64,28 +64,28 @@ export const handler = async (
   try {
     const queryParams = event.queryStringParameters || {};
     const older = queryParams.older === 'true';
-    const page = parseInt(queryParams.page || '1', 10);
     const nextToken = queryParams.nextToken || null;
-
-    if (isNaN(page) || page < 1) {
-      return {
-        statusCode: 400,
-        body: JSON.stringify({ message: 'Invalid page number' }),
-      };
-    }
 
     let logs: any[] = [];
     let responseNextToken: string | null = null;
 
     if (older) {
-      const athenaQuery = `
+      // Athena pagination using timestamp
+      let athenaQuery = `
         SELECT 
           id, timestamp, latency, is_successful, success_reason, error_reason,
           model_routing_history, user_id, metadata, thread_id, provider, model,
           cost, raw_request, raw_response, error_message
         FROM ai_gateway_logs
-        ORDER BY date DESC, timestamp DESC
       `;
+
+      if (nextToken) {
+        const lastTimestamp = decodeURIComponent(nextToken);
+        athenaQuery += ` WHERE timestamp < '${lastTimestamp}'`;
+      }
+
+      // Removed ORDER BY to return data in default order
+      athenaQuery += ` LIMIT ${PAGE_SIZE + 1}`;
 
       const startQuery = new StartQueryExecutionCommand({
         QueryString: athenaQuery,
@@ -100,8 +100,9 @@ export const handler = async (
 
       const queryExecution = await athenaClient.send(startQuery);
       const queryExecutionId = queryExecution.QueryExecutionId!;
-      let queryState: string | undefined;
 
+      // Poll for query completion
+      let queryState: string | undefined;
       do {
         await new Promise((res) => setTimeout(res, 1000));
         const status = await athenaClient.send(
@@ -114,27 +115,37 @@ export const handler = async (
         throw new Error('Athena query failed');
       }
 
-      const getQueryResultsInput: any = {
-        QueryExecutionId: queryExecutionId,
-        MaxResults: PAGE_SIZE + 1,
-      };
-      if (nextToken) getQueryResultsInput.NextToken = nextToken;
-
       const queryResults = await athenaClient.send(
-        new GetQueryResultsCommand(getQueryResultsInput)
+        new GetQueryResultsCommand({ QueryExecutionId: queryExecutionId })
       );
 
-      const rows = queryResults.ResultSet?.Rows || [];
+      let rows = queryResults.ResultSet?.Rows || [];
+      if (rows.length > 0) {
+        rows = rows.slice(1); // Skip header
+      }
 
-      // Skip header only on first page
-      logs = (!nextToken && rows.length > 0 ? rows.slice(1) : rows).map(
-        mapAthenaRow
-      );
-      responseNextToken = queryResults.NextToken || null;
+      const mappedRows = rows.map(mapAthenaRow);
+      logs = mappedRows.slice(0, PAGE_SIZE);
+
+      responseNextToken =
+        mappedRows.length > PAGE_SIZE
+          ? encodeURIComponent(mappedRows[PAGE_SIZE - 1].timestamp)
+          : null;
     } else {
-      const clientLastKey = nextToken
-        ? JSON.parse(decodeURIComponent(nextToken))
-        : undefined;
+      let clientLastKey: any;
+
+      if (nextToken) {
+        try {
+          clientLastKey = JSON.parse(decodeURIComponent(nextToken));
+        } catch (error) {
+          console.error('Invalid nextToken:', nextToken);
+          return {
+            statusCode: 400,
+            body: JSON.stringify({ message: 'Invalid nextToken' }),
+          };
+        }
+      }
+
       const dynamoQuery = new QueryCommand({
         TableName: LOG_TABLE_NAME,
         KeyConditionExpression: 'PK = :pk',
@@ -143,23 +154,39 @@ export const handler = async (
         },
         Limit: PAGE_SIZE,
         ExclusiveStartKey: clientLastKey,
-        ScanIndexForward: false, // descending: newest first
+        // Removed ScanIndexForward to use default true (chronological)
       });
 
       const dynamoResult = await dynamoClient.send(dynamoQuery);
-      logs = dynamoResult.Items?.map(mapDynamoItem) || [];
+      console.log('DynamoDB result:', JSON.stringify(dynamoResult, null, 2)); // Debug log
+      const items = dynamoResult.Items || [];
+      logs = items.map(mapDynamoItem);
+
+      if (items.length === 0 && nextToken) {
+        console.warn(
+          'No items returned with nextToken; possible data issue or end of results'
+        );
+      }
+
       responseNextToken = dynamoResult.LastEvaluatedKey
         ? encodeURIComponent(JSON.stringify(dynamoResult.LastEvaluatedKey))
         : null;
+
+      console.log('Returned logs:', logs.length);
+      console.log('Next token:', responseNextToken);
+      console.log(
+        'Returned log timestamps:',
+        logs.map((log) => log.timestamp)
+      );
     }
 
     return {
       statusCode: 200,
       body: JSON.stringify({
         logs,
-        page,
         pageSize: PAGE_SIZE,
         nextToken: responseNextToken,
+        hasMore: !!responseNextToken,
       }),
     };
   } catch (error) {

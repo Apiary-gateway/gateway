@@ -27,6 +27,6 @@ export const getLogs = async (
   } catch (error) {
     console.error('Error fetching logs:', error);
     alert('Error fetching logs');
-    return { logs: [], page: 0, pageSize: 0, nextToken: null };
+    return { logs: [], pageSize: 0, nextToken: null };
   }
 };

@@ -2,7 +2,7 @@ import { LogEntry } from '../types/logs.types'; // Adjust the import path
 
 interface LogsTableProps {
   logs: LogEntry[];
-  pageNumbers: number[];
+  pageNumbers: string[];
   currentPage: number;
   nextToken: string | null;
   onNext: () => void;
@@ -24,7 +24,15 @@ function LogsTable({
     if (!timestamp) {
       return 'NA';
     }
-    return new Date(timestamp).toLocaleString();
+    return new Date(timestamp).toLocaleString(undefined, {
+      hour12: false, // Use 24-hour format
+      year: 'numeric',
+      month: 'numeric',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+    });
   };
 
   return (
@@ -35,8 +43,10 @@ function LogsTable({
             <th>Time</th>
             <th>Thread ID</th>
             <th>Status</th>
+            <th>Latency</th>
             <th>Model</th>
             <th>Provider</th>
+            <th>Tokens / Cost</th>
             <th>Details</th>
           </tr>
         </thead>
@@ -52,8 +62,10 @@ function LogsTable({
               >
                 {log.success_reason || log.error_reason || 'NA'}
               </td>
+              <td>{log.latency || 'NA'}</td>
               <td>{log.model || 'NA'}</td>
               <td>{log.provider || 'NA'}</td>
+              <td>WIP</td>
               <td>
                 <button
                   className="details-button"

@@ -30,6 +30,7 @@ body {
   margin: 20px 0; /* Keep vertical margin for spacing */
   border-radius: 8px;
   overflow: hidden;
+  white-space: nowrap;
   background-color: #40414f; /* Slightly lighter gray for table */
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
@@ -37,8 +38,8 @@ body {
 .logs-table th,
 .logs-table td {
   border: 1px solid #4b5563;
-  padding: 12px;
-  text-align: left;
+  padding: 12px 18px;
+  text-align: center;
   color: #d1d5db;
   vertical-align: middle; /* Ensure content is vertically centered */
 }

@@ -5,7 +5,7 @@ import './index.css'; // Ensure CSS is imported
 import { LogEntry } from './types/logs.types';
 
 function App() {
-  const [logsMap, setLogsMap] = useState<Map<number, LogEntry[]>>(new Map());
+  const [logsRecord, setLogsRecord] = useState<Record<number, LogEntry[]>>({});
   const [nextToken, setNextToken] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -14,11 +14,8 @@ function App() {
     setIsLoading(true);
     try {
       const logsResponse = await getLogs(token);
-      console.log(logsResponse.logs);
-      const pageNumber = logsResponse.page;
-      setLogsMap((prev) => new Map(prev).set(pageNumber, logsResponse.logs));
+      setLogsRecord({ ...logsRecord, [currentPage]: logsResponse.logs });
       setNextToken(logsResponse.nextToken || null);
-      setCurrentPage(pageNumber);
     } catch (error) {
       console.error(error);
     } finally {
@@ -48,14 +45,15 @@ function App() {
     // });
   };
 
-  const currentLogs = logsMap.get(currentPage) || [];
+  const currentLogs = logsRecord[currentPage] || [];
 
+  console.log(currentPage, nextToken);
   return (
     <div className="app-container">
       <h1>AI GATEWAY LOGS</h1>
       <LogsTable
         logs={currentLogs}
-        pageNumbers={Array.from(logsMap.keys())}
+        pageNumbers={Array.from(Object.keys(logsRecord))}
         currentPage={currentPage}
         nextToken={nextToken}
         onNext={handleNext}
