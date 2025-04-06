@@ -24,26 +24,10 @@ export const LogEntrySchema = z.object({
 
 export type LogEntry = z.infer<typeof LogEntrySchema>;
 
-const LogResponseBodySchema = z.object({
+export const LogsResponseSchema = z.object({
   logs: z.array(LogEntrySchema),
   pageSize: z.number(),
   nextToken: z.string().optional().nullable(),
 });
 
-export type LogResponseBody = z.infer<typeof LogResponseBodySchema>;
-
-// Transform `body` string → parsed JSON → validate with LogResponseBodySchema
-export const LogsResponseSchema = z.object({
-  statusCode: z.number(),
-  body: z
-    .string()
-    .transform((val) => {
-      try {
-        return JSON.parse(val);
-      } catch (err) {
-        alert('Could not parse request from /logs');
-        throw new Error();
-      }
-    })
-    .pipe(LogResponseBodySchema),
-});
+export type LogsResponse = z.infer<typeof LogsResponseSchema>;

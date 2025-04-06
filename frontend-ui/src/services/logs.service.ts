@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { LogsResponseSchema, LogResponseBody } from '../types/logs.types';
+import { LogsResponse, LogsResponseSchema } from '../types/logs.types';
 
 // const getLogsEndpoint = (): string => {
 //   if (typeof window !== 'undefined' && 'LOGS_ENDPOINT' in window) {
@@ -9,9 +9,7 @@ import { LogsResponseSchema, LogResponseBody } from '../types/logs.types';
 //   throw new Error();
 // };
 
-export const getLogs = async (
-  token: string | null
-): Promise<LogResponseBody> => {
+export const getLogs = async (token: string | null): Promise<LogsResponse> => {
   // const LOGS_BASE_URL = getLogsEndpoint();
   const LOGS_BASE_URL =
     'https://mtr7cx7u23.execute-api.us-east-1.amazonaws.com/dev/logs';
@@ -23,7 +21,7 @@ export const getLogs = async (
       },
     });
 
-    return LogsResponseSchema.parse(data).body;
+    return LogsResponseSchema.parse(data);
   } catch (error) {
     console.error('Error fetching logs:', error);
     alert('Error fetching logs');

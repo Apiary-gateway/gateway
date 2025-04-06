@@ -538,48 +538,10 @@ export class AiGatewayStack extends Stack {
     const logsResource = api.root.addResource('logs');
 
     // Lambda integration for GET with CORS headers
-    const logsIntegration = new apigateway.LambdaIntegration(logsFn, {
-      proxy: false, // Non-proxy to control response
-      integrationResponses: [
-        {
-          statusCode: '200',
-          responseParameters: {
-            'method.response.header.Access-Control-Allow-Origin': "'*'",
-            'method.response.header.Access-Control-Allow-Headers':
-              "'Content-Type,X-Amz-Date,Authorization,X-Api-Key'",
-          },
-        },
-        {
-          statusCode: '500', // Handle errors
-          selectionPattern: '5\\d{2}',
-          responseParameters: {
-            'method.response.header.Access-Control-Allow-Origin': "'*'",
-            'method.response.header.Access-Control-Allow-Headers':
-              "'Content-Type,X-Amz-Date,Authorization,X-Api-Key'",
-          },
-        },
-      ],
-    });
+    const logsIntegration = new apigateway.LambdaIntegration(logsFn); // Proxy: true by default
 
-    // GET method with CORS response
     logsResource.addMethod('GET', logsIntegration, {
       apiKeyRequired: false,
-      methodResponses: [
-        {
-          statusCode: '200',
-          responseParameters: {
-            'method.response.header.Access-Control-Allow-Origin': true,
-            'method.response.header.Access-Control-Allow-Headers': true,
-          },
-        },
-        {
-          statusCode: '500',
-          responseParameters: {
-            'method.response.header.Access-Control-Allow-Origin': true,
-            'method.response.header.Access-Control-Allow-Headers': true,
-          },
-        },
-      ],
     });
 
     // OPTIONS method for CORS preflight
