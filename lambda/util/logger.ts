@@ -5,6 +5,7 @@ import * as parquets from 'parquets';
 import * as os from 'os';
 import * as path from 'path';
 import { readFile, unlink } from 'fs/promises';
+import { RoutingLog } from './types';
 
 const LOG_BUCKET = process.env.LOG_BUCKET_NAME;
 const LOG_TABLE_NAME = process.env.LOG_TABLE_NAME;
@@ -15,9 +16,11 @@ if (!LOG_BUCKET || !LOG_TABLE_NAME) {
 
 interface StructuredLogData {
   id: string;
-  timestamp: string;
+  timestamp: number; // epoch millis
   latency: bigint;
-  status: 'success' | 'error';
+  is_successful: boolean;
+  success_reason: string | null;
+  error_reason: string | null;
   model_routing_history: string;
   user_id: string | null;
   metadata: string | null;
@@ -31,17 +34,19 @@ interface StructuredLogData {
 }
 
 export class Logger {
-  // Class variables
   private static s3: S3Client = new S3Client({});
   private static ddb: DynamoDBClient = new DynamoDBClient({});
 
-  // Instance variables
   private requestStartTime: Date;
-  private status: 'success' | 'failure';
+  private is_successful: boolean;
+  private user_id: string | null;
+  private metadata: string | null;
+  private success_reason: string | null;
+  private error_reason: string | null;
+  private model_routing_history: string[];
   private thread_id: string | null;
   private provider: string | null;
   private model: string | null;
-  private model_routing_history: { model: string; latency: number }[];
   private cost: number | null;
   private raw_request: string | null;
   private raw_response: string | null;
@@ -49,7 +54,11 @@ export class Logger {
 
   constructor() {
     this.requestStartTime = new Date();
-    this.status = 'failure';
+    this.is_successful = false;
+    this.user_id = null;
+    this.metadata = null;
+    this.success_reason = null;
+    this.error_reason = null;
     this.model_routing_history = [];
     this.thread_id = null;
     this.provider = null;
@@ -57,15 +66,20 @@ export class Logger {
     this.cost = null;
     this.raw_request = null;
     this.raw_response = null;
+    this.error_message = null;
   }
 
-  private async logRequest() {
+  private async log(): Promise<void> {
     const structuredLog: StructuredLogData = {
       id: uuidv4(),
-      timestamp: this.requestStartTime.toISOString(),
+      timestamp: this.requestStartTime.getTime(),
       latency: BigInt(Date.now() - this.requestStartTime.getTime()),
-      status: this.status === 'success' ? 'success' : 'error',
+      is_successful: this.is_successful,
+      success_reason: this.success_reason,
+      error_reason: this.error_reason,
       model_routing_history: JSON.stringify(this.model_routing_history),
+      user_id: this.user_id,
+      metadata: this.metadata,
       thread_id: this.thread_id,
       provider: this.provider,
       model: this.model,
@@ -75,13 +89,16 @@ export class Logger {
       error_message: this.error_message,
     };
 
-    // Write to Parquet
     const schema = new parquets.ParquetSchema({
       id: { type: 'UTF8' },
-      timestamp: { type: 'UTF8' },
+      timestamp: { type: 'INT64', originalType: 'TIMESTAMP_MILLIS' } as any,
       latency: { type: 'INT64' },
-      status: { type: 'UTF8' },
+      is_successful: { type: 'BOOLEAN' },
+      success_reason: { type: 'UTF8', optional: true },
+      error_reason: { type: 'UTF8', optional: true },
       model_routing_history: { type: 'UTF8' },
+      user_id: { type: 'UTF8', optional: true },
+      metadata: { type: 'UTF8', optional: true },
       thread_id: { type: 'UTF8', optional: true },
       provider: { type: 'UTF8', optional: true },
       model: { type: 'UTF8', optional: true },
@@ -99,11 +116,13 @@ export class Logger {
     const buffer = await readFile(tmpFilePath);
     await unlink(tmpFilePath);
 
-    const date = structuredLog.timestamp.split('T')[0];
-    const key = `logs/parquet/status=${
-      structuredLog.status
-    }/date=${date}/provider=${structuredLog.provider ?? 'unknown'}/model=${
-      structuredLog.model ?? 'unknown'
+    const isoDate = new Date(structuredLog.timestamp).toISOString();
+    const date = isoDate.split('T')[0];
+
+    const key = `logs/parquet/is_successful=${
+      structuredLog.is_successful
+    }/date=${date}/provider=${structuredLog.provider ?? ''}/model=${
+      structuredLog.model ?? ''
     }/${structuredLog.id}.parquet`;
 
     await Logger.s3.send(
@@ -115,18 +134,29 @@ export class Logger {
       })
     );
 
-    // Write to DynamoDB
     await Logger.ddb.send(
       new PutItemCommand({
         TableName: LOG_TABLE_NAME,
         Item: {
           PK: { S: 'LOG' },
-          SK: { S: `TS#${structuredLog.timestamp}` },
+          SK: { S: `TS#${isoDate}` },
           id: { S: structuredLog.id },
-          timestamp: { S: structuredLog.timestamp },
+          timestamp: { S: isoDate },
           latency: { N: structuredLog.latency.toString() },
-          status: { S: structuredLog.status },
+          is_successful: { BOOL: structuredLog.is_successful },
+          success_reason: structuredLog.success_reason
+            ? { S: structuredLog.success_reason }
+            : { NULL: true },
+          error_reason: structuredLog.error_reason
+            ? { S: structuredLog.error_reason }
+            : { NULL: true },
           model_routing_history: { S: structuredLog.model_routing_history },
+          user_id: structuredLog.user_id
+            ? { S: structuredLog.user_id }
+            : { NULL: true },
+          metadata: structuredLog.metadata
+            ? { S: structuredLog.metadata }
+            : { NULL: true },
           thread_id: structuredLog.thread_id
             ? { S: structuredLog.thread_id }
             : { NULL: true },
@@ -136,9 +166,10 @@ export class Logger {
           model: structuredLog.model
             ? { S: structuredLog.model }
             : { NULL: true },
-          cost: structuredLog.cost
-            ? { N: structuredLog.cost.toString() }
-            : { NULL: true },
+          cost:
+            structuredLog.cost !== null
+              ? { N: structuredLog.cost.toString() }
+              : { NULL: true },
           raw_request: structuredLog.raw_request
             ? { S: structuredLog.raw_request }
             : { NULL: true },
@@ -153,30 +184,45 @@ export class Logger {
     );
   }
 
-  addModelRoutingHistory(model: string) {
-    this.model_routing_history = [
-      ...this.model_routing_history,
-      {
-        model,
-        latency: Date.now() - this.requestStartTime.getTime(),
-      },
-    ];
+  setRawRequest(rawRequest: string) {
+    this.raw_request = rawRequest;
   }
 
-  logError(errorMessage: string) {
+  setInitialData(
+    threadId: string,
+    userId: string | undefined,
+    metadata: string
+  ) {
+    this.thread_id = threadId;
+    this.user_id = userId || null;
+    this.metadata = metadata;
+  }
+
+  async logSuccessData(
+    model: string,
+    provider: string,
+    modelRoutingHistory: RoutingLog,
+    successReason: string,
+    rawResponse: string
+  ) {
+    const modelRoutingHistoryJsonArray = modelRoutingHistory.events.map((e) =>
+      JSON.stringify(e, null, 2)
+    );
+
+    this.model = model;
+    this.provider = provider;
+    this.model_routing_history = modelRoutingHistoryJsonArray;
+    this.success_reason = successReason;
+    this.raw_response = rawResponse;
+    this.is_successful = true;
+
+    await this.log();
+  }
+
+  async logErrorData(errorReason: string, errorMessage: string) {
+    this.error_reason = errorReason;
     this.error_message = errorMessage;
-    this.status = 'failure';
-    this.logRequest();
-  }
 
-  logSuccess(rawResponse: string) {
-    this.status = 'success';
-    try {
-      this.raw_response = JSON.stringify(JSON.parse(rawResponse), null, 2);
-    } catch (e) {
-      this.raw_response = rawResponse;
-    }
-
-    this.logRequest();
+    await this.log();
   }
 }

@@ -180,7 +180,7 @@ export class AiGatewayStack extends Stack {
     //     `arn:aws:aoss:${this.region}:${this.account}:index/semantic-cache/*`
     //   ]
     // }));
-    
+
     // new CfnOutput(this, 'OpenSearchEndpoint', {
     //   value: `${vectorCollection.attrCollectionEndpoint}`,
     //   exportName: 'OpenSearchCollectionEndpoint',
@@ -318,9 +318,10 @@ export class AiGatewayStack extends Stack {
           Name: 'ai_gateway_logs',
           TableType: 'EXTERNAL_TABLE',
           Parameters: {
+            classification: 'parquet',
             'projection.enabled': 'true',
-            'projection.status.type': 'enum',
-            'projection.status.values': 'success,failure',
+            'projection.is_successful.type': 'enum',
+            'projection.is_successful.values': 'true,false',
             'projection.date.type': 'date',
             'projection.date.range': '2025-01-01,NOW',
             'projection.date.format': 'yyyy-MM-dd',
@@ -331,15 +332,19 @@ export class AiGatewayStack extends Stack {
             'projection.model.type': 'enum',
             'projection.model.values':
               'gpt-3.5-turbo,gpt-4,claude-3-opus-20240229,gemini-1.5-pro,unknown',
-            'storage.location.template': `s3://${logBucket.bucketName}/logs/parquet/status=\${status}/date=\${date}/provider=\${provider}/model=\${model}/`,
+            'storage.location.template': `s3://${logBucket.bucketName}/logs/parquet/is_successful=\${is_successful}/date=\${date}/provider=\${provider}/model=\${model}/`,
           },
           StorageDescriptor: {
             Columns: [
               { Name: 'id', Type: 'string' },
-              { Name: 'thread_ts', Type: 'string' },
-              { Name: 'timestamp', Type: 'string' },
+              { Name: 'timestamp', Type: 'timestamp' }, // updated from 'string' for better query support
               { Name: 'latency', Type: 'bigint' },
-              { Name: 'tokens_used', Type: 'bigint' },
+              { Name: 'success_reason', Type: 'string' },
+              { Name: 'error_reason', Type: 'string' },
+              { Name: 'model_routing_history', Type: 'string' },
+              { Name: 'user_id', Type: 'string' },
+              { Name: 'metadata', Type: 'string' },
+              { Name: 'thread_id', Type: 'string' },
               { Name: 'cost', Type: 'double' },
               { Name: 'raw_request', Type: 'string' },
               { Name: 'raw_response', Type: 'string' },
@@ -356,7 +361,7 @@ export class AiGatewayStack extends Stack {
             },
           },
           PartitionKeys: [
-            { Name: 'status', Type: 'string' },
+            { Name: 'is_successful', Type: 'string' },
             { Name: 'date', Type: 'string' },
             { Name: 'provider', Type: 'string' },
             { Name: 'model', Type: 'string' },
@@ -364,6 +369,7 @@ export class AiGatewayStack extends Stack {
         },
       },
     });
+
     athenaTable.addDependency(athenaDatabase);
     athenaDatabase.addDependency(athenaWorkgroup);
     logBucket.grantRead(new iam.ServicePrincipal('athena.amazonaws.com'));
@@ -396,10 +402,12 @@ export class AiGatewayStack extends Stack {
       },
     });
 
-    routerFn.addToRolePolicy(new iam.PolicyStatement({
-      actions: ['scheduler:CreateSchedule', 'iam:PassRole'],
-      resources: ['*']
-    }))
+    routerFn.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ['scheduler:CreateSchedule', 'iam:PassRole'],
+        resources: ['*'],
+      })
+    );
 
     // Logs Lambda
     const logsFn = new lambdaNode.NodejsFunction(this, 'LogsFunction', {
@@ -530,48 +538,10 @@ export class AiGatewayStack extends Stack {
     const logsResource = api.root.addResource('logs');
 
     // Lambda integration for GET with CORS headers
-    const logsIntegration = new apigateway.LambdaIntegration(logsFn, {
-      proxy: false, // Non-proxy to control response
-      integrationResponses: [
-        {
-          statusCode: '200',
-          responseParameters: {
-            'method.response.header.Access-Control-Allow-Origin': "'*'",
-            'method.response.header.Access-Control-Allow-Headers':
-              "'Content-Type,X-Amz-Date,Authorization,X-Api-Key'",
-          },
-        },
-        {
-          statusCode: '500', // Handle errors
-          selectionPattern: '5\\d{2}',
-          responseParameters: {
-            'method.response.header.Access-Control-Allow-Origin': "'*'",
-            'method.response.header.Access-Control-Allow-Headers':
-              "'Content-Type,X-Amz-Date,Authorization,X-Api-Key'",
-          },
-        },
-      ],
-    });
+    const logsIntegration = new apigateway.LambdaIntegration(logsFn); // Proxy: true by default
 
-    // GET method with CORS response
     logsResource.addMethod('GET', logsIntegration, {
       apiKeyRequired: false,
-      methodResponses: [
-        {
-          statusCode: '200',
-          responseParameters: {
-            'method.response.header.Access-Control-Allow-Origin': true,
-            'method.response.header.Access-Control-Allow-Headers': true,
-          },
-        },
-        {
-          statusCode: '500',
-          responseParameters: {
-            'method.response.header.Access-Control-Allow-Origin': true,
-            'method.response.header.Access-Control-Allow-Headers': true,
-          },
-        },
-      ],
     });
 
     // OPTIONS method for CORS preflight
@@ -642,9 +612,8 @@ export class AiGatewayStack extends Stack {
     new s3deploy.BucketDeployment(this, 'DeployFrontend', {
       sources: [
         s3deploy.Source.asset(
-          path.join(__dirname, '..', 'dist', 'frontend-ui')
-          // path.join(__dirname, '..', 'frontend-ui', 'dist')
-        ), // Updated path
+          path.join(__dirname, '..', 'frontend-ui', 'dist') // <-- correct path
+        ),
         s3deploy.Source.data('config.js', configJsContent),
       ],
       destinationBucket: frontendBucket,
