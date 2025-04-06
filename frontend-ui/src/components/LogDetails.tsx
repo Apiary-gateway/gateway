@@ -13,18 +13,33 @@ const CollapsibleField = ({
   value: string;
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
+  const lines = value.split('\n');
+  const showMore = lines.length > 2;
 
   return (
     <div className="log-detail-row">
       <div className="log-detail-label">{label}</div>
       <div className="log-detail-value">
-        <button
-          className="collapsible-toggle-button"
-          onClick={() => setIsExpanded(!isExpanded)}
-        >
-          {isExpanded ? '▼' : '▶'} {isExpanded ? 'Show Less' : 'Show More'}
-        </button>
-        {isExpanded && <div className="collapsible-content">{value}</div>}
+        <div className="collapsible-content">
+          {isExpanded ? (
+            lines.map((line, i) => <div key={i}>{line}</div>)
+          ) : (
+            <>
+              {lines.slice(0, 2).map((line, i) => (
+                <div key={i}>{line}</div>
+              ))}
+              {showMore && <div>...</div>}
+            </>
+          )}
+        </div>
+        {showMore && (
+          <button
+            className="collapsible-toggle-button"
+            onClick={() => setIsExpanded(!isExpanded)}
+          >
+            {isExpanded ? '▼' : '▶'} {isExpanded ? 'Show Less' : 'Show More'}
+          </button>
+        )}
       </div>
     </div>
   );
@@ -93,7 +108,6 @@ const ModelRoutingHistory = ({ history }: { history: any }) => {
     events = events
       .map((e) => JSON.parse(e))
       .filter((event) => event && (event.type || event.provider));
-    console.log('events', events);
 
     if (events.length === 0) return null;
 
