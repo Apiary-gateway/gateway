@@ -181,7 +181,7 @@ export const handler = async (
       },
       Limit: PAGE_SIZE,
       ExclusiveStartKey: clientLastKey,
-      ScanIndexForward: true,
+      ScanIndexForward: false, // latest logs first
     });
 
     const dynamoResult = await dynamoClient.send(dynamoQuery);
