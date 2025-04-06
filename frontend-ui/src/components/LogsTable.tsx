@@ -4,7 +4,7 @@ interface LogsTableProps {
   logs: LogEntry[];
   pageNumbers: string[];
   currentPage: number;
-  nextToken: string | null;
+  isNextButtonDisabled: boolean;
   onNext: () => void;
   onPageSelect: (page: number) => void;
   onDetailsClick: (log: LogEntry) => void; // Added for clickable details
@@ -14,7 +14,7 @@ function LogsTable({
   logs,
   pageNumbers,
   currentPage,
-  nextToken,
+  isNextButtonDisabled,
   onNext,
   onPageSelect,
   onDetailsClick,
@@ -88,7 +88,11 @@ function LogsTable({
             {page}
           </button>
         ))}
-        <button className="next-button" onClick={onNext} disabled={!nextToken}>
+        <button
+          className="next-button"
+          onClick={onNext}
+          disabled={isNextButtonDisabled}
+        >
           Next →
         </button>
         <span className="page-info">Page {currentPage}</span>

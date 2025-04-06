@@ -28,6 +28,7 @@ export const LogsResponseSchema = z.object({
   logs: z.array(LogEntrySchema),
   pageSize: z.number(),
   nextToken: z.string().optional().nullable(),
+  queryExecutionId: z.string().optional().nullable(),
 });
 
 export type LogsResponse = z.infer<typeof LogsResponseSchema>;

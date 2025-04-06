@@ -1,21 +1,56 @@
 import { useEffect, useState } from 'react';
-import { getLogs } from './services/logs.service'; // Adjust the import path
+import { getLogsFromAthena, getLogsFromDynamo } from './services/logs.service'; // Adjust the import path
 import LogsTable from './components/LogsTable'; // Adjust the import path
 import './index.css'; // Ensure CSS is imported
 import { LogEntry } from './types/logs.types';
 
 function App() {
-  const [logsRecord, setLogsRecord] = useState<Record<number, LogEntry[]>>({});
-  const [nextToken, setNextToken] = useState<string | null>(null);
-  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [showAthenaLogs, setShowAthenaLogs] = useState<boolean>(false);
+  const [dynamoLogsRecord, setDynamoLogsRecord] = useState<
+    Record<number, LogEntry[]>
+  >({});
+  const [athenaLogsRecord, setAthenaLogsRecord] = useState<
+    Record<number, LogEntry[]>
+  >({});
+  const [athenaNextToken, setAthenaNextToken] = useState<string | null>(null);
+  const [dynamoNextToken, setDynamoNextToken] = useState<string | null>(null);
+  const [athenaQueryExecutionId, setAthenaQueryExecutionId] = useState<
+    string | null
+  >(null);
+  const [currentPage, setCurrentPage] = useState<number>(0);
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
-  const fetchLogs = async (token: string | null) => {
+  const fetchLogsFromAthena = async () => {
     setIsLoading(true);
     try {
-      const logsResponse = await getLogs(token);
-      setLogsRecord({ ...logsRecord, [currentPage]: logsResponse.logs });
-      setNextToken(logsResponse.nextToken || null);
+      const logsResponse = await getLogsFromAthena(
+        athenaNextToken,
+        athenaQueryExecutionId
+      );
+      setAthenaLogsRecord({
+        ...athenaLogsRecord,
+        [currentPage + 1]: logsResponse.logs,
+      });
+      setCurrentPage(currentPage + 1);
+      setAthenaNextToken(logsResponse.nextToken || null);
+      setAthenaQueryExecutionId(logsResponse.queryExecutionId || null);
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const fetchLogsFromDynamo = async () => {
+    setIsLoading(true);
+    try {
+      const logsResponse = await getLogsFromDynamo(dynamoNextToken);
+      setDynamoLogsRecord({
+        ...dynamoLogsRecord,
+        [currentPage + 1]: logsResponse.logs,
+      });
+      setCurrentPage(currentPage + 1);
+      setDynamoNextToken(logsResponse.nextToken || null);
     } catch (error) {
       console.error(error);
     } finally {
@@ -24,17 +59,30 @@ function App() {
   };
 
   useEffect(() => {
-    fetchLogs(null);
-  }, []);
-
-  const handleNext = () => {
-    if (nextToken) {
-      fetchLogs(nextToken);
+    if (showAthenaLogs && !athenaLogsRecord[1]) {
+      fetchLogsFromAthena();
+    } else if (!showAthenaLogs && !dynamoLogsRecord[1]) {
+      fetchLogsFromDynamo();
     }
-  };
+  }, [showAthenaLogs]);
 
   const handlePageSelect = (page: number) => {
     setCurrentPage(page);
+  };
+
+  const handleToggleLogs = () => {
+    if (!showAthenaLogs && !athenaLogsRecord[1]) {
+      setCurrentPage(0);
+    }
+    setShowAthenaLogs(!showAthenaLogs);
+  };
+
+  const handleNext = async () => {
+    if (showAthenaLogs) {
+      await fetchLogsFromAthena();
+    } else {
+      await fetchLogsFromDynamo();
+    }
   };
 
   const handleDetailsClick = (log: LogEntry) => {
@@ -45,17 +93,29 @@ function App() {
     // });
   };
 
-  const currentLogs = logsRecord[currentPage] || [];
+  const currentLogs = showAthenaLogs
+    ? athenaLogsRecord[currentPage]
+    : dynamoLogsRecord[currentPage];
 
-  console.log(currentPage, nextToken);
+  const pageNumbers = showAthenaLogs
+    ? Array.from(Object.keys(athenaLogsRecord))
+    : Array.from(Object.keys(dynamoLogsRecord));
+
+  const isNextButtonDisabled = showAthenaLogs
+    ? !athenaNextToken
+    : !dynamoNextToken;
+
   return (
     <div className="app-container">
-      <h1>AI GATEWAY LOGS</h1>
+      <h1>AI GATEWAY LOGS ({showAthenaLogs ? 'Athena' : 'Dynamo'})</h1>
+      <button className="toggle-button" onClick={handleToggleLogs}>
+        {showAthenaLogs ? 'Show Dynamo Logs' : 'Show Athena Logs'}
+      </button>
       <LogsTable
-        logs={currentLogs}
-        pageNumbers={Array.from(Object.keys(logsRecord))}
+        logs={currentLogs || []}
+        pageNumbers={pageNumbers}
         currentPage={currentPage}
-        nextToken={nextToken}
+        isNextButtonDisabled={isNextButtonDisabled}
         onNext={handleNext}
         onPageSelect={handlePageSelect}
         onDetailsClick={handleDetailsClick}

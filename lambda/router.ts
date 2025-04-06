@@ -7,9 +7,6 @@ import { getMessageHistory, saveMessages } from './util/getAndSaveMessages';
 import { routeRequest } from './util/routeRequest';
 import { Logger } from './util/logger';
 import { isValidModelForProvider } from './util/modelValidation';
-import { log } from 'console';
-// import { parse } from 'path';
-// import { calculateCost } from "./util/calculateCost";
 
 export const handler = async (event: unknown) => {
   const logger = new Logger();
