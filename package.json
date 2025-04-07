@@ -9,11 +9,8 @@
     "watch": "tsc -w",
     "test": "jest",
     "cdk": "cdk",
-<<<<<<< HEAD
-    "deploy": "cdk deploy && ts-node scripts/seedGuardrailEmbeddings.ts"
-=======
+    "deploy": "cdk deploy && ts-node scripts/seedGuardrailEmbeddings.ts",
     "deploy-hotswap": "cd frontend-ui && npm run build && cd .. && npx cdk deploy --hotswap"
->>>>>>> origin/pre-main
   },
   "devDependencies": {
     "@types/aws-lambda": "^8.10.148",
