@@ -6,7 +6,6 @@ import {
 import { getMessageHistory, saveMessages } from './util/getAndSaveMessages';
 import { routeRequest } from './util/routeRequest';
 import { Logger } from './util/logger';
-import { isValidModelForProvider } from './util/modelValidation';
 
 export const handler = async (event: unknown) => {
   const logger = new Logger();
@@ -28,26 +27,9 @@ export const handler = async (event: unknown) => {
       metadata,
     });
 
-<<<<<<< HEAD
-        // await logSuccessfulRequest({
-        //     ...logData,
-        //     RawResponse: JSON.stringify(response),
-        // });
-        console.log(
-            userId,
-            threadID,
-            response.text, 
-            response.provider, 
-            response.model, 
-            response.log, 
-            response.usage?.completion_tokens, 
-            response.usage?.prompt_tokens,
-        )
-=======
     await saveMessages(prompt, response.text, threadID);
 
     let successReason;
->>>>>>> origin/pre-main
 
     if (response.simpleCacheHit) {
       successReason = 'SIMPLE_CACHE_HIT';
