@@ -1,3 +1,4 @@
+// === lambda/logs.ts ===
 import { APIGatewayProxyEventV2, APIGatewayProxyResult } from 'aws-lambda';
 import { DynamoDBClient, QueryCommand } from '@aws-sdk/client-dynamodb';
 import {
@@ -9,6 +10,7 @@ import {
 
 const dynamoClient = new DynamoDBClient({});
 const athenaClient = new AthenaClient({});
+
 const LOG_TABLE_NAME = process.env.LOG_TABLE_NAME || '';
 const LOG_BUCKET_NAME = process.env.LOG_BUCKET_NAME || '';
 const ATHENA_WORKGROUP = process.env.ATHENA_WORKGROUP || 'llm_logs_workgroup';
@@ -76,13 +78,6 @@ export const handler = async (
     const nextToken = queryParams.nextToken || null;
     let queryExecutionId = queryParams.queryExecutionId || null;
 
-    console.log('Request parameters:', {
-      older,
-      page,
-      nextToken,
-      queryExecutionId,
-    });
-
     if (isNaN(page) || page < 1) {
       return {
         statusCode: 400,
@@ -95,12 +90,27 @@ export const handler = async (
     let responseNextToken: string | null = null;
 
     if (older) {
+      // When querying Athena:
       if (!queryExecutionId) {
+        // IMPORTANT: List columns in the same order as mapAthenaRow expects:
         const athenaQuery = `
-          SELECT 
-            id, timestamp, latency, is_successful, success_reason, error_reason,
-            model_routing_history, user_id, metadata, thread_id, provider, model,
-            cost, raw_request, raw_response, error_message
+          SELECT
+            id,
+            timestamp,
+            latency,
+            is_successful,
+            success_reason,
+            error_reason,
+            model_routing_history,
+            user_id,
+            metadata,
+            thread_id,
+            provider,
+            model,
+            cost,
+            raw_request,
+            raw_response,
+            error_message
           FROM ai_gateway_logs
           ORDER BY date DESC, timestamp DESC
         `;
@@ -119,6 +129,8 @@ export const handler = async (
         const queryExecution = await athenaClient.send(startQuery);
         queryExecutionId = queryExecution.QueryExecutionId!;
         let queryState: string | undefined;
+
+        // Wait for the query to finish
         do {
           await new Promise((resolve) => setTimeout(resolve, 1000));
           const queryExecutionResult = await athenaClient.send(
@@ -138,6 +150,7 @@ export const handler = async (
         }
       }
 
+      // Retrieve the results page-by-page
       const getQueryResultsInput: any = {
         QueryExecutionId: queryExecutionId,
         MaxResults: PAGE_SIZE + 1,
@@ -152,6 +165,7 @@ export const handler = async (
       );
       const rows = queryResults.ResultSet?.Rows || [];
 
+      // Drop the header row if this is the first page of results
       logs = rows.length > 1 ? rows.slice(1).map(mapAthenaRow) : [];
       responseNextToken = queryResults.NextToken || null;
 
@@ -168,7 +182,7 @@ export const handler = async (
       };
     }
 
-    // DynamoDB fallback path
+    // Otherwise, fetch logs from DynamoDB
     const clientLastKey = nextToken
       ? JSON.parse(decodeURIComponent(nextToken))
       : undefined;
@@ -181,7 +195,7 @@ export const handler = async (
       },
       Limit: PAGE_SIZE,
       ExclusiveStartKey: clientLastKey,
-      ScanIndexForward: false, // latest logs first
+      ScanIndexForward: false,
     });
 
     const dynamoResult = await dynamoClient.send(dynamoQuery);

@@ -9,3 +9,5 @@
 5. Ideally we would want to take care of routing history within the logging mechanism.
 
 6. Now, 1 full request-response cycle is a unit, not individual hops.
+
+7. Logging single request is simple, but inefficient. Its a good practise to batch together requests.

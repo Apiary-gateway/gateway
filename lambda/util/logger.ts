@@ -1,17 +1,10 @@
-import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { DynamoDBClient, PutItemCommand } from '@aws-sdk/client-dynamodb';
 import { v4 as uuidv4 } from 'uuid';
-import * as parquets from 'parquets';
-import * as os from 'os';
-import * as path from 'path';
-import { readFile, unlink } from 'fs/promises';
 import { RoutingLog } from './types';
 
-const LOG_BUCKET = process.env.LOG_BUCKET_NAME;
 const LOG_TABLE_NAME = process.env.LOG_TABLE_NAME;
-
-if (!LOG_BUCKET || !LOG_TABLE_NAME) {
-  throw new Error('LOG_BUCKET_NAME and LOG_TABLE_NAME must be set');
+if (!LOG_TABLE_NAME) {
+  throw new Error('LOG_TABLE_NAME must be set');
 }
 
 interface StructuredLogData {
@@ -34,7 +27,6 @@ interface StructuredLogData {
 }
 
 export class Logger {
-  private static s3: S3Client = new S3Client({});
   private static ddb: DynamoDBClient = new DynamoDBClient({});
 
   private requestStartTime: Date;
@@ -70,6 +62,7 @@ export class Logger {
   }
 
   private async log(): Promise<void> {
+    // Build the log object
     const structuredLog: StructuredLogData = {
       id: uuidv4(),
       timestamp: this.requestStartTime.getTime(),
@@ -89,51 +82,8 @@ export class Logger {
       error_message: this.error_message,
     };
 
-    const schema = new parquets.ParquetSchema({
-      id: { type: 'UTF8' },
-      timestamp: { type: 'INT64', originalType: 'TIMESTAMP_MILLIS' } as any,
-      latency: { type: 'INT64' },
-      is_successful: { type: 'BOOLEAN' },
-      success_reason: { type: 'UTF8', optional: true },
-      error_reason: { type: 'UTF8', optional: true },
-      model_routing_history: { type: 'UTF8' },
-      user_id: { type: 'UTF8', optional: true },
-      metadata: { type: 'UTF8', optional: true },
-      thread_id: { type: 'UTF8', optional: true },
-      provider: { type: 'UTF8', optional: true },
-      model: { type: 'UTF8', optional: true },
-      cost: { type: 'DOUBLE', optional: true },
-      raw_request: { type: 'UTF8', optional: true },
-      raw_response: { type: 'UTF8', optional: true },
-      error_message: { type: 'UTF8', optional: true },
-    });
-
-    const tmpFilePath = path.join(os.tmpdir(), `${structuredLog.id}.parquet`);
-    const writer = await parquets.ParquetWriter.openFile(schema, tmpFilePath);
-    await writer.appendRow(structuredLog);
-    await writer.close();
-
-    const buffer = await readFile(tmpFilePath);
-    await unlink(tmpFilePath);
-
+    // Write to DynamoDB only
     const isoDate = new Date(structuredLog.timestamp).toISOString();
-    const date = isoDate.split('T')[0];
-
-    const key = `logs/parquet/is_successful=${
-      structuredLog.is_successful
-    }/date=${date}/provider=${structuredLog.provider ?? ''}/model=${
-      structuredLog.model ?? ''
-    }/${structuredLog.id}.parquet`;
-
-    await Logger.s3.send(
-      new PutObjectCommand({
-        Bucket: LOG_BUCKET,
-        Key: key,
-        Body: buffer,
-        ContentType: 'application/octet-stream',
-      })
-    );
-
     await Logger.ddb.send(
       new PutItemCommand({
         TableName: LOG_TABLE_NAME,

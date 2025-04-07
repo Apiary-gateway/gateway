@@ -22,6 +22,10 @@ import {
   Resource,
   CustomResource,
 } from 'aws-cdk-lib';
+// ✅ Add these imports for scheduling
+import { Rule, Schedule } from 'aws-cdk-lib/aws-events';
+import { LambdaFunction } from 'aws-cdk-lib/aws-events-targets';
+
 import * as cr from 'aws-cdk-lib/custom-resources';
 import { timeStamp } from 'console';
 import { ResourceType } from 'aws-cdk-lib/aws-config';
@@ -82,175 +86,7 @@ export class AiGatewayStack extends Stack {
     );
 
     // SEMANTIC CACHE ITEMS START
-    // Security policy for OpenSearch Serverless collection for semantic cache
-    // const encryptionPolicy = new opensearch.CfnSecurityPolicy(this, 'OpenSearchEncryptionPolicy', {
-    //   name: 'semantic-cache-encryption-policy',
-    //   type: 'encryption',
-    //   policy: JSON.stringify({
-    //     Rules: [
-    //       {
-    //         ResourceType: 'collection',
-    //         Resource: ['collection/semantic-cache']
-    //       }
-    //     ],
-    //     AWSOwnedKey: true
-    //   })
-    // });
-
-    // // allow public network access to OpenSearch - tighten this down?
-    // const accessPolicy = new opensearch.CfnSecurityPolicy(this, 'PublicNetworkPolicy', {
-    //   name: 'public-network-policy',
-    //   type: 'network',
-    //   policy: JSON.stringify([
-    //     {
-    //       Rules: [
-    //         {
-    //           ResourceType: 'collection',
-    //           Resource: ['collection/semantic-cache'],
-    //         },
-    //       ],
-    //       AllowFromPublic: true,
-    //     },
-    //   ]),
-    // });
-
-    // // OpenSearch Serverless collection for semantic cache
-    // const vectorCollection = new opensearch.CfnCollection(this, 'SemanticCacheCollection', {
-    //   name: 'semantic-cache',
-    //   type: 'VECTORSEARCH',
-    //   // "dev-test mode" - disabling replicas should cut cost in half
-    //   standbyReplicas: 'DISABLED',
-    // });
-
-    // vectorCollection.node.addDependency(encryptionPolicy);
-    // vectorCollection.node.addDependency(accessPolicy);
-
-    // // IAM role for Lambda to invoke Bedrock models and access OpenSearch API
-    // const semanticCacheLambdaRole = new iam.Role(this, 'SemanticCacheLambdaRole', {
-    //   assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
-    //   managedPolicies: [
-    //     iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AWSLambdaBasicExecutionRole')
-    //   ]
-    // });
-
-    // new opensearch.CfnAccessPolicy(this, 'OpenSearchAccessPolicy', {
-    //   name: 'semantic-cache-access-policy',
-    //   type: 'data',
-    //   policy: JSON.stringify([
-    //     {
-    //       Rules: [
-    //         {
-    //           ResourceType: "collection",
-    //           Resource: [`collection/${vectorCollection.name}`],
-    //           Permission: ["aoss:*"],
-    //         },
-    //         {
-    //           ResourceType: "index",
-    //           Resource: ["index/*/*"],
-    //           Permission: ["aoss:*"]
-    //         }
-    //       ],
-    //       Principal: [
-    //         semanticCacheLambdaRole.roleArn,
-    //         `arn:aws:iam::${Aws.ACCOUNT_ID}:root`,
-    //       ]
-    //     }
-    //   ])
-    // });
-
-    // semanticCacheLambdaRole.addToPolicy(new iam.PolicyStatement({
-    //   actions: ['bedrock:InvokeModel'],
-    //   // TODO: limit this to a specific Bedrock model(s)?
-    //   resources: ['*']
-    // }));
-
-    // semanticCacheLambdaRole.addToPolicy(new iam.PolicyStatement({
-    //   actions: [
-    //     'aoss:ReadDocument',
-    //     'aoss:WriteDocument',
-    //     'aoss:DescribeCollectionItems',
-    //     'aoss:DescribeCollection',
-    //     'aoss:ListCollections',
-    //     'aoss:APIAccessAll',
-    //   ],
-    //   // TODO: limit this more to specific resources?
-    //   resources: [
-    //     `arn:aws:aoss:${this.region}:${this.account}:*`,
-    //     `arn:aws:aoss:${this.region}:${this.account}:collection/semantic-cache`,
-    //     `arn:aws:aoss:${this.region}:${this.account}:index/semantic-cache/*`
-    //   ]
-    // }));
-
-    // new CfnOutput(this, 'OpenSearchEndpoint', {
-    //   value: `${vectorCollection.attrCollectionEndpoint}`,
-    //   exportName: 'OpenSearchCollectionEndpoint',
-    // });
-
-    // new CfnOutput(this, 'OpenSearchCollectionAttrId', {
-    //   value: `${vectorCollection.attrId}`,
-    //   exportName: 'OpenSearchCollectionAttrId',
-    // });
-
-    // const createVectorIndexFn = new lambdaNode.NodejsFunction(this, 'CreateVectorIndexFunction', {
-    //   entry: 'lambda/vectorIndex.ts',
-    //   handler: 'handler',
-    //   runtime: lambda.Runtime.NODEJS_18_X,
-    //   timeout: Duration.seconds(30),
-    //   role: semanticCacheLambdaRole,
-    //   bundling: {
-    //     format: lambdaNode.OutputFormat.CJS,
-    //     externalModules: ['aws-sdk'],
-    //   },
-    //   environment: {
-    //     OPENSEARCH_ENDPOINT: vectorCollection.attrCollectionEndpoint,
-    //     OPENSEARCH_INDEX: 'semantic-cache-index',
-    //   },
-    // });
-
-    // const provider = new cr.Provider(this, 'CreateVectorIndexProvider', {
-    //   onEventHandler: createVectorIndexFn,
-    //   logGroup: new logs.LogGroup(this, 'CRProviderLogs', {
-    //     retention: logs.RetentionDays.FIVE_DAYS
-    //   }),
-    // });
-
-    // const createVectorIndex = new CustomResource(this, 'CreateVectorIndex', {
-    //   serviceToken: provider.serviceToken,
-    //   serviceTimeout: Duration.seconds(900), // 15 min
-    //   // should invoke Lambda again if either of these properties change
-    //   properties: {
-    //     collectionName: vectorCollection.name,
-    //     indexName: 'semantic-cache-index',
-    //   },
-    // });
-
-    // createVectorIndex.node.addDependency(vectorCollection);
-
-    // const deleteDocumentFn = new lambdaNode.NodejsFunction(this, 'DeleteDocumentFunction', {
-    //   entry: 'lambda/deleteDocument.ts',
-    //   handler: 'handler',
-    //   runtime: lambda.Runtime.NODEJS_18_X,
-    //   timeout: Duration.seconds(30),
-    //   role: semanticCacheLambdaRole,
-    //   bundling: {
-    //     format: lambdaNode.OutputFormat.CJS,
-    //     externalModules: ['aws-sdk'],
-    //   },
-    //   environment: {
-    //     OPENSEARCH_ENDPOINT: vectorCollection.attrCollectionEndpoint,
-    //     OPENSEARCH_INDEX: 'semantic-cache-index',
-    //   },
-    // });
-
-    //  // Role for EventBridge Scheduler to invoke deleteDocumentFn Lambda
-    //  const schedulerInvokeRole = new iam.Role(this, 'SchedulerInvokeRole', {
-    //   assumedBy: new iam.ServicePrincipal('scheduler.amazonaws.com'),
-    // });
-
-    // schedulerInvokeRole.addToPolicy(new iam.PolicyStatement({
-    //   actions: ['lambda:InvokeFunction'],
-    //   resources: [deleteDocumentFn.functionArn],
-    // }));
+    // (commented out code for OpenSearch Serverless, etc.)
     // SEMANTIC CACHE ITEMS END
 
     // Secrets Manager for API Keys
@@ -337,7 +173,7 @@ export class AiGatewayStack extends Stack {
           StorageDescriptor: {
             Columns: [
               { Name: 'id', Type: 'string' },
-              { Name: 'timestamp', Type: 'timestamp' }, // updated from 'string' for better query support
+              { Name: 'timestamp', Type: 'timestamp' },
               { Name: 'latency', Type: 'bigint' },
               { Name: 'success_reason', Type: 'string' },
               { Name: 'error_reason', Type: 'string' },
@@ -380,8 +216,6 @@ export class AiGatewayStack extends Stack {
       handler: 'handler',
       runtime: lambda.Runtime.NODEJS_18_X,
       timeout: Duration.seconds(30),
-      // comment out line below if not using semantic cache
-      // role: semanticCacheLambdaRole,
       bundling: {
         format: lambdaNode.OutputFormat.CJS,
         externalModules: ['aws-sdk'],
@@ -394,11 +228,6 @@ export class AiGatewayStack extends Stack {
         SYSTEM_PROMPT: 'You are a helpful assistant. You answer in cockney.',
         LOG_BUCKET_NAME: logBucket.bucketName,
         CACHE_TABLE_NAME: aiGatewayCacheTable.tableName,
-        // comment out lines below if not using semantic cache
-        // OPENSEARCH_ENDPOINT: vectorCollection.attrCollectionEndpoint,
-        // OPENSEARCH_INDEX: 'semantic-cache-index',
-        // DELETE_DOCUMENT_LAMBDA_ARN: deleteDocumentFn.functionArn,
-        // SCHEDULER_ROLE_ARN: schedulerInvokeRole.roleArn,
       },
     });
 
@@ -424,6 +253,34 @@ export class AiGatewayStack extends Stack {
         LOG_BUCKET_NAME: logBucket.bucketName,
         ATHENA_WORKGROUP: athenaWorkgroupName,
       },
+    });
+
+    // === NEW: Migrate Logs Lambda ===
+    const migrateLogsFn = new lambdaNode.NodejsFunction(
+      this,
+      'MigrateLogsFunction',
+      {
+        entry: 'lambda/migrateLogs.ts', // your newly created file
+        handler: 'handler',
+        runtime: lambda.Runtime.NODEJS_18_X,
+        timeout: Duration.minutes(5),
+        bundling: {
+          format: lambdaNode.OutputFormat.CJS,
+          externalModules: ['aws-sdk'],
+        },
+        environment: {
+          LOG_TABLE_NAME: aiGatewayLogsTable.tableName,
+          LOG_BUCKET_NAME: logBucket.bucketName,
+        },
+      }
+    );
+    aiGatewayLogsTable.grantReadWriteData(migrateLogsFn);
+    logBucket.grantReadWrite(migrateLogsFn);
+
+    // === Schedule to run every 5 minutes ===
+    new Rule(this, 'MigrateLogsScheduleRule', {
+      schedule: Schedule.rate(Duration.minutes(5)),
+      targets: [new LambdaFunction(migrateLogsFn)],
     });
 
     // API Gateway with Cloudwatch logs
@@ -482,6 +339,7 @@ export class AiGatewayStack extends Stack {
     aiGatewayLogsTable.grantReadData(logsFn);
     messageTable.grantReadWriteData(routerFn);
     logBucket.grantReadWrite(logsFn);
+
     logsFn.addToRolePolicy(
       new iam.PolicyStatement({
         actions: [
@@ -539,7 +397,6 @@ export class AiGatewayStack extends Stack {
 
     // Lambda integration for GET with CORS headers
     const logsIntegration = new apigateway.LambdaIntegration(logsFn); // Proxy: true by default
-
     logsResource.addMethod('GET', logsIntegration, {
       apiKeyRequired: false,
     });
@@ -612,11 +469,17 @@ export class AiGatewayStack extends Stack {
     new s3deploy.BucketDeployment(this, 'DeployFrontend', {
       sources: [
         s3deploy.Source.asset(
-          path.join(__dirname, '..', 'frontend-ui', 'dist') // <-- correct path
+          path.join(__dirname, '..', 'frontend-ui', 'dist') // <-- adapt path if needed
         ),
         s3deploy.Source.data('config.js', configJsContent),
       ],
       destinationBucket: frontendBucket,
+    });
+
+    // NEW: Output the deployed website URL of the S3 frontend bucket
+    new CfnOutput(this, 'FrontendBucketUrl', {
+      value: frontendBucket.bucketWebsiteUrl,
+      description: 'URL for the deployed frontend S3 bucket website',
     });
   }
 }
