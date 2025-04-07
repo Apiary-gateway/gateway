@@ -1,10 +1,9 @@
-import { routingConfig } from "./routingConfigData";
-import { guardrailsUtterances, guardrailsThreshold } from "./guardrailsConfig";
+import { routingConfig } from "./routingConfig";
+import { guardrailsConfig } from "./guardrailConfig";
+import { cacheConfig } from "./cacheConfig";
 
 export const config = {
   routing: routingConfig,
-  guardrails: {
-    threshold: guardrailsThreshold,
-    utterances: guardrailsUtterances,
-  }
+  cache: cacheConfig,
+  guardrails: guardrailsConfig
 };

@@ -1,5 +1,6 @@
 import { MODELS } from "./constants";
 import { RoutingLog as RoutingLogObject } from "./routingLog";
+import type { CompletionResponse } from 'token.js';
 
 export type InternalMessage = {
     threadID?: string;
@@ -21,10 +22,7 @@ export type ProviderModel = {
 
 export type WeightedProviderModel = ProviderModel & { weight: number };
 
-export type RequestMetadata = {
-    userType?: string;
-    region?: string;
-};
+export type RequestMetadata = Record<string, any>;
 
 export type RoutingCondition = {
     name: string;
@@ -34,11 +32,45 @@ export type RoutingCondition = {
 }
 
 export type RoutingConfig = {
-    conditions?: RoutingCondition[];
     defaultModel: ProviderModel;
+    enableFallbacks: boolean;
     fallbackModel: ProviderModel;
+    retries: number;
+    availableMetadata: string[];
     fallbackOnStatus?: number[];
+    conditions?: RoutingCondition[];
 }
+
+export type GuardrailsConfig = {
+    threshold: number;
+    restrictedWords: string[];
+    sensitivityLevel: 0 | 1 | 2; // no checks, exact words, phrases;
+    resendOnViolation: boolean;
+    blockedContentResponse: string;
+}
+
+export type CacheConfig = {
+    enableSimple: boolean;
+    enableSemantic: boolean;
+    semanticCacheThreshold: number;
+}
+
+export interface RoutingLog {
+    timestamp: string;
+    events: RoutingEvent[];
+}
+
+export type RoutingEvent = 
+    | { type: 'condition_match'; condition: string }
+    | { type: 'routed_to_load_balance' }
+    | { type: 'model_selected'; provider: SupportedLLMs; model: string }
+    | { type: 'routed_to_fallback'; newProvider: string; newModel: string }
+    | { type: 'routed_to_default'; provider: string; model: string }
+    | { type: 'routed_to_specified'; provider: string; model: string }
+    | { type: 'routing_error'; error: string; statusCode?: number }
+    | { type: 'cache_hit'; cacheType: 'simple' | 'semantic' }
+    | { type: 'guardrail_hit'; level: 'one' | 'two'; match: string }
+    | { type: 'guardrail_retry'; };
 
 export type CallLLMArgs = {
     history: InternalMessage[];
@@ -47,6 +79,16 @@ export type CallLLMArgs = {
     model: ModelForProvider<SupportedLLMs>;
     log: RoutingLogObject;
     userId?: string;
+}
+
+export type CallLLMResponse = {
+    text: string, 
+    usage: CompletionResponse['usage'], 
+    provider: SupportedLLMs, 
+    model: ModelForProvider<SupportedLLMs>, 
+    log: RoutingLog,
+    simpleCacheHit?: boolean,
+    semanticCacheHit?: boolean
 }
 
 export type RouteRequestArgs = {
@@ -68,16 +110,13 @@ export type ParsedRequestData = {
     userId?: string;
 }
 
-export interface RoutingLog {
-    timestamp: string;
-    events: RoutingEvent[];
+
+export type GuardrailResult = {
+    isBlocked: boolean;
+    match?: string;
 }
 
-export type RoutingEvent = 
-    | { type: 'condition_match'; condition: string }
-    | { type: 'routed_to_load_balance' }
-    | { type: 'model_selected'; provider: SupportedLLMs; model: string }
-    | { type: 'routed_to_fallback'; newProvider: string; newModel: string }
-    | { type: 'routed_to_default'; provider: string; model: string }
-    | { type: 'routed_to_specified'; provider: string; model: string }
-    | { type: 'routing_error'; error: string; statusCode?: number };
+export type GuardrailS3Params = {
+    bucket: string;
+    key: string;
+}

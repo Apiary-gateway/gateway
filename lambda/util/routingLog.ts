@@ -42,6 +42,19 @@ export class RoutingLog {
         this.add({ type: 'routing_error', error, statusCode });
     }
 
+    cacheHit(cacheType: 'simple' | 'semantic') {
+        this.add({ type: 'cache_hit', cacheType });
+    }
+
+    guardrailHit(level: 'one' | 'two', match: string) {
+        this.add({ type: 'guardrail_hit', level, match });
+    }
+
+    guardrailRetry() {
+        this.add({ type: 'guardrail_retry' });
+    }
+
+
     private add(event: RoutingEvent) {
         this.log.events.push(event);
     }

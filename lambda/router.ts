@@ -43,34 +43,7 @@ export const handler = async (event: unknown) => {
             response.log, 
             response.usage?.completion_tokens, 
             response.usage?.prompt_tokens,
-            // response.simpleCacheHit,
-            // response.semanticCacheHit // we don't have this yet. Do we want to discern between simple and semantic?
         )
-        // await logSuccessfulRequest({
-        //     ...logData,
-        //     RawResponse: JSON.stringify(response),
-        // });
-        console.log(
-            userId,
-            threadID,
-            response.text, 
-            response.provider, 
-            response.model, 
-            response.log, 
-            response.usage?.completion_tokens, 
-            response.usage?.prompt_tokens,
-            // response.simpleCacheHit,
-            // response.semanticCacheHit // we don't have this yet. Do we want to discern between simple and semantic?
-        )
-
-        // don't await - no need to wait here
-        // we'll return requestEmbedding from callLLM? We move this too?
-        // addToSimpleCache(prompt, response.text, userId, provider, model);
-        // addToSemanticCache(requestEmbedding, prompt, response.text, userId, provider, model);
-        // don't await - no need to wait here
-        // we'll return requestEmbedding from callLLM? We move this too?
-        // addToSimpleCache(prompt, response.text, userId, provider, model);
-        // addToSemanticCache(requestEmbedding, prompt, response.text, userId, provider, model);
 
         return {
             statusCode: 200,

@@ -1,3 +1,4 @@
+import { config } from './config/config';
 import { RequestPayload } from './schemas/requestSchema';
 import { ParsedRequestData, RequestMetadata } from './types';
 import { requestIsValid } from './validateRequest';
@@ -17,12 +18,14 @@ export function extractRequestMetadata(event: unknown, parsed: RequestPayload): 
       console.error('Invalid request');
       return {};
     }
+    const metadata: RequestMetadata = {};
 
     try {
-      return {
-        userType: event.headers?.['x-user-type'] || parsed.userType,
-        region: event.headers?.['x-region'] || parsed.region,
-      };
+      for (const field of config.routing.availableMetadata || []) {
+        const headerKey = `x-${field.toLowerCase()}`;
+        metadata[field] = event.headers?.[headerKey];
+      }
+      return metadata;
     } catch (error) {
     console.error('Error extracting request metadata:', error);
     return {};

@@ -1,12 +1,15 @@
 import { RoutingConfig } from '../types';
 
 export const routingConfig: RoutingConfig = {
+  enableFallbacks: true,
   fallbackModel: { provider: 'anthropic', model: 'claude-3-5-haiku-20241022' },
   fallbackOnStatus: [500, 503, 429, 401, 403],
+  retries: 3,
+  availableMetadata: ['user-type', 'region', 'plan'],
   conditions: [
     {
       name: 'pro-users',
-      query: (meta) => meta.userType === 'pro',
+      query: (meta) => meta['user-type'] === 'pro',
       loadBalance: [
         { provider: 'openai', model: 'gpt-4', weight: 0.7 },
         { provider: 'anthropic', model: 'claude-3-opus-20240229', weight: 0.3 },

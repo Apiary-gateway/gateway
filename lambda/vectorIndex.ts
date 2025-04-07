@@ -4,11 +4,12 @@ import { SignatureV4 } from "@aws-sdk/signature-v4";
 import { Sha256 } from "@aws-crypto/sha256-js";
 import axios, { AxiosError } from "axios";
 import { CdkCustomResourceEvent, Context } from "aws-lambda";
+import { embedAndIndexGuardrails } from "./util/embedGuardrails";
 import * as https from "https";
 
 const region = process.env.AWS_REGION!;
 const collectionEndpoint = process.env.OPENSEARCH_ENDPOINT!;
-const indexName = process.env.OPENSEARCH_INDEX;
+// const indexName = process.env.OPENSEARCH_INDEX;
 const service = "aoss"; // for AWS OpenSearch Serverless
 const credentialsProvider = defaultProvider();
 
@@ -21,6 +22,21 @@ export const handler = async (event: CdkCustomResourceEvent, context: Context) =
     region,
     sha256: Sha256,
   });
+
+  const indexName = event.ResourceProperties.indexName;
+  const dimension = Number(event.ResourceProperties.dimension);
+  const customMappings = event.ResourceProperties.mappings
+    ? JSON.parse(event.ResourceProperties.mappings)
+    : null;
+
+  // const physicalResourceId = `Index-${indexName}`;
+
+  if (event.RequestType === "Delete") {
+    const indexName = event.ResourceProperties.indexName;
+    const physicalId = event.PhysicalResourceId || `Index-${indexName}`;
+      console.log(`Skipping delete for index '${indexName}' (not supported or safe to ignore).`);
+      return { PhysicalResourceId: physicalId }; 
+  }
 
   const checkIfIndexExistsRequest = new HttpRequest({
     method: "HEAD",
@@ -45,48 +61,36 @@ export const handler = async (event: CdkCustomResourceEvent, context: Context) =
     if (err instanceof AxiosError && err.response?.status === 404) {
       console.log(`Index '${indexName}' not found, creating...`);
 
-      const index = {
-        "aliases": {},
-        "mappings": {
-          "properties": {
-            "embedding": {
-              "type": "knn_vector",
-              "dimension": 1024,
-              "method": {
-                "engine": "nmslib",
-                "space_type": "cosinesimil",
-                "name": "hnsw",
-                "parameters": {}
-              }
-            },
-            "llmResponse": {
-              "type": "text"
-            },
-            "requestText": {
-              "type": "text"
-            },
-            "model": {
-              "type": "keyword"
-            },
-            "provider": {
-              "type": "keyword"
-            },
-            "timestamp": {
-              "type": "date"
-            },
-            "userId": {
-              "type": "keyword"
+      const defaultMappings = {
+        properties: {
+          embedding: {
+            type: "knn_vector",
+            dimension,
+            method: {
+              engine: "nmslib", // non-metric space library (approx. nn search library)
+              space_type: "cosinesimil",
+              name: "hnsw", // heirarchical navigable small world (graph-based ann algorithm)
+              parameters: {}
             }
-          }
-        },
-        "settings": {
-          "index": {
-            "number_of_shards": "2",
-            "knn.algo_param": {
-                "ef_search": "512"
-            },
-            "knn": "true",
-            "number_of_replicas": "0"
+          },
+          llmResponse: { type: "text" },
+          requestText: { type: "text" },
+          model: { type: "keyword" },
+          provider: { type: "keyword" },
+          timestamp: { type: "date" },
+          userId: { type: "keyword" }
+        }
+      }
+
+      const index = {
+        aliases: {},
+        mappings: customMappings || defaultMappings,
+        settings: {
+          index: {
+            number_of_shards: "2",
+            "knn.algo_param": { ef_search: "512" },
+            knn: "true",
+            number_of_replicas: "0"
           }
         }
       }
@@ -113,13 +117,24 @@ export const handler = async (event: CdkCustomResourceEvent, context: Context) =
 
       console.log("Index created: ", response.data);
       // await sendCfnResponse(event, context, 'SUCCESS', {message: 'Index created'});
-      return {PhysicalResourceId: `Index-${indexName}`};
+
     } else {
       console.error("Error checking or creating index: ", err);
       // await sendCfnResponse(event, context, 'FAILED');
       throw err;
     }
   }
+
+  if (indexName === 'guardrails-index' && event.RequestType === 'Create') {
+    console.log("Embedding and indexing guardrail utterances...");
+
+    const bucket = event.ResourceProperties.guardrailsBucket;
+    const key = event.ResourceProperties.guardrailsKey;
+
+    await embedAndIndexGuardrails({ bucket, key });
+  }
+
+  return {PhysicalResourceId: `Index-${indexName}`};
 };
 
 // Using Provider framework - shouldn't need this function anymore
@@ -178,6 +193,7 @@ async function sendCfnResponse(
 }
 
 function maskCredentialsAndSignature(message: string) {
-  return message.replace(/X-Amz-Credential=[^&\s]+/i, 'X-Amz-Credential=*****')
+  return message
+    .replace(/X-Amz-Credential=[^&\s]+/i, 'X-Amz-Credential=*****')
     .replace(/X-Amz-Signature=[^&\s]+/i, 'X-Amz-Signature=*****');
 }

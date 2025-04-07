@@ -1,4 +1,4 @@
-import { routingConfig } from './config/routingConfigData'
+import { config } from './config/config'
 import { CallLLMArgs, WeightedProviderModel, ProviderModel, RouteRequestArgs, SupportedLLMs, ModelForProvider, RoutingLog as RoutingLogType } from './types';
 import callLLM from './callLLM';
 import { CompletionResponse } from 'token.js';
@@ -6,9 +6,7 @@ import { getErrorStatusCode } from './errorHandling';
 import { FALLBACK_STATUS_CODES } from './constants';
 import { MODELS } from './constants';
 import { RoutingLog } from './routingLog';
-import { SupportedLLMs, ModelForProvider } from './types';
-import { RoutingLog as RoutingLogType } from './types';
-
+import { retryWithBackoff } from './retryWithBackoff';
 
 export async function routeRequest({ history, prompt, provider, model, metadata, userId }: Omit <RouteRequestArgs, 'log'>):
 Promise<{       
@@ -22,7 +20,7 @@ Promise<{
 }> {
 
     const log = new RoutingLog();
-    const conditions = routingConfig.conditions || [];
+    const conditions = config.routing.conditions || [];
 
     if (provider) {
       model = model || MODELS[provider][0];
@@ -36,17 +34,9 @@ Promise<{
           try {
             log.conditionMatched(cond.name)
             log.routedToLoadBalance();
-            const selectedModel = weightedPick(cond.loadBalance);
-            log.modelSelected(selectedModel.provider, selectedModel.model)
-            return await callLLM({ 
-              history, 
-              prompt, 
-              provider: selectedModel.provider, 
-              model: selectedModel.model,
-              log,
-              userId
-            })
-  
+            const { provider, model } = weightedPick(cond.loadBalance);
+            log.modelSelected(provider, model)
+            return await retryWithBackoff(() => callLLM({ history, prompt, provider, model, log, userId }));
           } catch (error) {
             return await handleRoutingError(error, history, prompt, log, cond);
           }
@@ -67,8 +57,8 @@ async function handleRoutingError(
   const statusCode = getErrorStatusCode(error);
   log.routingError(error.message, statusCode);
 
-  const fallbackStatuses = routingConfig.fallbackOnStatus || FALLBACK_STATUS_CODES;
-  if (statusCode && fallbackStatuses.includes(statusCode)) {
+  const fallbackStatuses = config.routing.fallbackOnStatus || FALLBACK_STATUS_CODES;
+  if (statusCode && config.routing.enableFallbacks && fallbackStatuses.includes(statusCode)) {
     return await routeToFallback({ history, prompt, condition, log });
   } else {
     console.error('Error routing request:', error)
@@ -78,33 +68,24 @@ async function handleRoutingError(
 
 async function routeToDefault({ history, prompt, condition, log, userId }: RouteRequestArgs) {
   try {
-    const { provider, model } = routingConfig.defaultModel;
+    const { provider, model } = config.routing.defaultModel;
     log.routedToDefault(provider, model);
-    return await callLLM({ history, prompt, provider, model, log, userId });
+    return await retryWithBackoff(() => callLLM({ history, prompt, provider, model, log, userId }));
   } catch (error) {
     return handleRoutingError(error, history, prompt, log, condition);
   }
 }
 
 async function routeToFallback({ history, prompt, condition, log, userId }: RouteRequestArgs) {
-  const fallbackModel = condition?.fallbackModel || routingConfig.fallbackModel;
-  log.routedToFallback(fallbackModel.provider, fallbackModel.model);
-  const result = await callLLM({ 
-      history, 
-      prompt, 
-      provider: fallbackModel.provider, 
-      model: fallbackModel.model,
-      log,
-      userId
-  });
-
-  return result;
+  const { provider, model } = condition?.fallbackModel || config.routing.fallbackModel;
+  log.routedToFallback(provider, model);
+  return await retryWithBackoff(() => callLLM({ history, prompt, provider, model, log, userId}));
 }
 
 async function routeToSpecified({ history, prompt, provider, model, log, userId }: CallLLMArgs) {
   try {
     log.routedToSpecified(provider, model);
-    return await callLLM({ history, prompt, provider, model, log, userId });
+    return await retryWithBackoff(() => callLLM({ history, prompt, provider, model, log, userId }));
   } catch (error) {
     return handleRoutingError(error, history, prompt, log);
   }
