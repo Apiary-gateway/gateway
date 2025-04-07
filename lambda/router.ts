@@ -1,35 +1,34 @@
-import { validateRequest } from "./util/validateRequest";
-import { extractRequestData, extractRequestMetadata } from "./util/extractRequestData";
-import { getMessageHistory, saveMessages } from "./util/getAndSaveMessages";
-import { routeRequest } from "./util/routeRequest";
-import { isValidModelForProvider } from "./util/modelValidation";
-// import {
-//     logSuccessfulRequest,
-//     logFailedRequest,
-//     CommonLogData,
-// } from './util/logger';
-import { parse } from 'path';
+import { validateRequest } from './util/validateRequest';
+import {
+  extractRequestData,
+  extractRequestMetadata,
+} from './util/extractRequestData';
+import { getMessageHistory, saveMessages } from './util/getAndSaveMessages';
+import { routeRequest } from './util/routeRequest';
+import { Logger } from './util/logger';
+import { isValidModelForProvider } from './util/modelValidation';
 
 export const handler = async (event: unknown) => {
-    // const logData: CommonLogData = {
-    //     requestStartTime: Date.now(),
-    //     provider: null,
-    //     model: null,
-    //     tokens_used: 0,
-    //     cost: 0,
-    //     RawRequest: JSON.stringify(event),
-    // };
+  const logger = new Logger();
+  logger.setRawRequest(JSON.stringify(event, null, 2));
+  try {
+    const payload = validateRequest(event);
+    const { threadID, prompt, provider, model, userId } =
+      extractRequestData(payload);
+    const metadata = extractRequestMetadata(event, payload);
 
-    try {
-      const payload = validateRequest(event);
-      const { threadID, prompt, provider, model, userId } = extractRequestData(payload);
-      const metadata = extractRequestMetadata(event, payload);
+    logger.setInitialData(threadID, userId, JSON.stringify(metadata));
 
-        const history = await getMessageHistory(threadID);
-        const response = await routeRequest({ history, prompt, provider, model, metadata });
-        
-        await saveMessages(prompt, response.text, threadID); 
+    const history = await getMessageHistory(threadID);
+    const response = await routeRequest({
+      history,
+      prompt,
+      provider,
+      model,
+      metadata,
+    });
 
+<<<<<<< HEAD
         // await logSuccessfulRequest({
         //     ...logData,
         //     RawResponse: JSON.stringify(response),
@@ -44,31 +43,48 @@ export const handler = async (event: unknown) => {
             response.usage?.completion_tokens, 
             response.usage?.prompt_tokens,
         )
+=======
+    await saveMessages(prompt, response.text, threadID);
 
-        return {
-            statusCode: 200,
-            headers: {
-              "simple-cache": `${response.simpleCacheHit ? 'HIT' : 'MISS'}`,
-              "semantic-cache": `${response.semanticCacheHit ? 'HIT' : 'MISS'}`,
-            },
-            body: JSON.stringify({
-                threadID,
-                response
-            }),
-        };
-    } catch (error) {
-        console.error(error);
+    let successReason;
+>>>>>>> origin/pre-main
 
-        const errorMessage =
-          error instanceof Error ? error.message : 'Unknown Error';
-    
-        // await logFailedRequest({ ...logData, errorMessage });
-    
-        return {
-          statusCode: 500,
-          body: JSON.stringify({
-            error: errorMessage,
-          }),
-        }
+    if (response.simpleCacheHit) {
+      successReason = 'SIMPLE_CACHE_HIT';
+    } else if (response.semanticCacheHit) {
+      successReason = 'SEMANTIC_CACHE_HIT';
+    } else {
+      successReason = 'LLM_RESPONSE';
     }
-}
+
+    await logger.logSuccessData(
+      response.model,
+      response.provider,
+      response.log,
+      successReason,
+      JSON.stringify(response, null, 2)
+    );
+    return {
+      statusCode: 200,
+      headers: {
+        'simple-cache': `${response.simpleCacheHit ? 'HIT' : 'MISS'}`,
+        'semantic-cache': `${response.semanticCacheHit ? 'HIT' : 'MISS'}`,
+      },
+      body: JSON.stringify({
+        threadID,
+        response,
+      }),
+    };
+  } catch (error) {
+    const errorMessage =
+      error instanceof Error ? error.message : 'Unknown Error';
+
+    await logger.logErrorData('Unknown Error Reason', errorMessage);
+    return {
+      statusCode: 500,
+      body: JSON.stringify({
+        error: errorMessage,
+      }),
+    };
+  }
+};

@@ -30,15 +30,16 @@ body {
   margin: 20px 0; /* Keep vertical margin for spacing */
   border-radius: 8px;
   overflow: hidden;
+  white-space: nowrap;
   background-color: #40414f; /* Slightly lighter gray for table */
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
 .logs-table th,
 .logs-table td {
-  border: 1px solid #4b5563; /* Darker gray border */
-  padding: 12px;
-  text-align: left;
+  border: 1px solid #4b5563;
+  padding: 12px 18px;
+  text-align: center;
   color: #d1d5db;
   vertical-align: middle; /* Ensure content is vertically centered */
 }
@@ -50,21 +51,32 @@ body {
   text-align: center; /* Center the heading */
 }
 
+.status-success,
 .status-error {
-  color: #ef4444; /* Brighter red for visibility */
-  font-weight: 700; /* Bold text for emphasis */
-  font-style: italic; /* Italic for failure indication */
-  padding-left: 20px; /* Space for the icon */
-  display: inline-block; /* Ensure padding applies correctly */
+  align-items: center;
+  font-weight: 700;
+  font-style: italic;
+  border: none;
+  background-color: transparent;
+  padding-left: 0; /* or remove it */
+}
+
+.status-success::before,
+.status-error::before {
+  margin-right: 6px;
+  font-style: normal;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.status-success::before {
+  content: '✓'; /* Unicode U+2713 — Check mark */
+  color: #4ade80; /* Soft green */
 }
 
 .status-error::before {
-  content: '\2717'; /* Unicode for cross mark (✗) */
-  color: #f87171; /* Softer, less bright red */
-  font-style: normal; /* Non-italic cross */
-  font-weight: 700; /* Keep it bold */
-  margin-right: 6px; /* Space between icon and text */
-  line-height: 1; /* Keep it tight */
+  content: '✗'; /* Unicode U+2717 — Cross mark */
+  color: #f87171; /* Soft red */
 }
 
 .details-button {
@@ -160,4 +172,274 @@ body {
   100% {
     transform: rotate(360deg);
   }
+}
+
+.app-header {
+  display: flex;
+  align-items: center;
+  padding: 32px 8px;
+}
+
+.app-header h1 {
+  flex: 1; /* Let the H1 grow to fill space */
+  text-align: center; /* Center text in that space */
+  margin: 0; /* remove default h1 margin if necessary */
+}
+
+.toggle-button {
+  margin-left: auto; /* Push the button to the far right */
+  padding: 8px 16px;
+  background-color: #4caf50;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background-color 0.3s;
+  z-index: 1;
+}
+
+.toggle-button:hover {
+  background-color: #45a049;
+}
+
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(1px);
+  z-index: 1000;
+  display: flex;
+  justify-content: flex-end;
+  align-items: stretch;
+  opacity: 0;
+  animation: fadeIn 0.3s forwards;
+}
+
+.modal-content {
+  background-color: #40414f;
+  color: #d1d5db;
+  width: 50%;
+  max-width: 600px;
+  height: 100%;
+  box-shadow: -4px 0 12px rgba(0, 0, 0, 0.4);
+  padding: 24px;
+  overflow-y: auto;
+  font-family: 'Inter', 'Helvetica', 'Arial', sans-serif;
+  transform: translateX(100%);
+  animation: slideInRight 0.3s forwards;
+  position: relative;
+}
+
+.modal-close-button {
+  background: none;
+  border: none;
+  color: #9ca3af;
+  font-size: 18px;
+  position: absolute;
+  top: 16px;
+  right: 24px;
+  cursor: pointer;
+}
+
+.modal-close-button:hover {
+  color: #ffffff;
+}
+
+.modal-overlay.closing {
+  animation: fadeOut 0.3s forwards;
+}
+
+.modal-content.closing {
+  animation: slideOutRight 0.3s forwards;
+}
+
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideOutRight {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes fadeOut {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+.log-detail-container {
+  padding: 24px;
+  color: #d1d5db;
+}
+
+.log-detail-container h2 {
+  margin: 0 0 24px 0;
+  color: #f3f4f6;
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.log-detail-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.log-detail-row {
+  display: flex;
+  border: 1px solid #4b5563;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.log-detail-label {
+  background-color: #4b5563;
+  padding: 12px 16px;
+  min-width: 180px;
+  font-weight: 600;
+  border-right: 1px solid #4b5563;
+}
+
+.log-detail-value {
+  flex: 1;
+  padding: 12px 16px;
+  background-color: #40414f;
+  word-break: break-word;
+}
+
+.json-field {
+  width: 100%;
+}
+
+.json-toggle-button {
+  background-color: #4b5563;
+  color: #d1d5db;
+  border: none;
+  padding: 4px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', monospace;
+  font-size: 12px;
+  margin-bottom: 8px;
+  transition: background-color 0.2s;
+}
+
+.json-toggle-button:hover {
+  background-color: #6b7280;
+}
+
+.json-content {
+  margin: 0;
+  padding: 12px;
+  background-color: #343541;
+  border-radius: 4px;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', monospace;
+  font-size: 13px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+  border: 1px solid #4b5563;
+}
+
+.routing-history {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  background-color: #343541;
+  padding: 8px;
+  border-radius: 4px;
+  border: 1px solid #4b5563;
+}
+
+.routing-event {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background-color: #4b5563;
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+.event-type {
+  color: #9ca3af;
+  font-size: 12px;
+  text-transform: capitalize;
+}
+
+.event-detail {
+  color: #d1d5db;
+  font-size: 12px;
+}
+
+.event-arrow {
+  color: #9ca3af;
+  margin: 0 4px;
+}
+
+.prompt-value,
+.response-value {
+  white-space: pre-wrap;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', monospace;
+  font-size: 13px;
+  line-height: 1.5;
+  background-color: #343541;
+  padding: 12px;
+  border-radius: 4px;
+  border: 1px solid #4b5563;
+}
+
+.collapsible-toggle-button {
+  background-color: #4b5563;
+  color: #d1d5db;
+  border: none;
+  padding: 4px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', monospace;
+  font-size: 12px;
+  margin-bottom: 8px;
+  transition: background-color 0.2s;
+}
+
+.collapsible-toggle-button:hover {
+  background-color: #6b7280;
+}
+
+.collapsible-content {
+  white-space: pre-wrap;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', monospace;
+  font-size: 13px;
+  line-height: 1.5;
+  background-color: #343541;
+  padding: 12px;
+  border-radius: 4px;
+  border: 1px solid #4b5563;
+  margin-top: 8px;
 }

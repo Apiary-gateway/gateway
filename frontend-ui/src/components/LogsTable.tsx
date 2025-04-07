@@ -2,9 +2,9 @@ import { LogEntry } from '../types/logs.types'; // Adjust the import path
 
 interface LogsTableProps {
   logs: LogEntry[];
-  pageNumbers: number[];
+  pageNumbers: string[];
   currentPage: number;
-  nextToken: string | null;
+  isNextButtonDisabled: boolean;
   onNext: () => void;
   onPageSelect: (page: number) => void;
   onDetailsClick: (log: LogEntry) => void; // Added for clickable details
@@ -14,14 +14,25 @@ function LogsTable({
   logs,
   pageNumbers,
   currentPage,
-  nextToken,
+  isNextButtonDisabled,
   onNext,
   onPageSelect,
   onDetailsClick,
 }: LogsTableProps) {
   // Format timestamp to human-readable local date and time
-  const formatDateTime = (timestamp: string) => {
-    return new Date(timestamp).toLocaleString();
+  const formatDateTime = (timestamp: string | null | undefined) => {
+    if (!timestamp) {
+      return 'NA';
+    }
+    return new Date(timestamp).toLocaleString(undefined, {
+      hour12: false, // Use 24-hour format
+      year: 'numeric',
+      month: 'numeric',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+    });
   };
 
   return (
@@ -32,10 +43,10 @@ function LogsTable({
             <th>Time</th>
             <th>Thread ID</th>
             <th>Status</th>
+            <th>Latency</th>
             <th>Model</th>
             <th>Provider</th>
-            <th>Tokens</th>
-            <th>Cost</th>
+            <th>Tokens / Cost</th>
             <th>Details</th>
           </tr>
         </thead>
@@ -43,14 +54,18 @@ function LogsTable({
           {logs.map((log) => (
             <tr key={log.id}>
               <td>{formatDateTime(log.timestamp)}</td>
-              <td>{log.thread_ts}</td>
-              <td className={log.status === 'failure' ? 'status-error' : ''}>
-                {log.status}
+              <td>{log.thread_id || 'NA'}</td>
+              <td
+                className={
+                  !log.is_successful ? 'status-error' : 'status-success'
+                }
+              >
+                {log.success_reason || log.error_reason || 'NA'}
               </td>
-              <td>{log.model}</td>
-              <td>{log.provider}</td>
-              <td>{log.raw_response?.usage.total_tokens || 'NA'}</td>
-              <td>{log.cost}</td>
+              <td>{log.latency || 'NA'}</td>
+              <td>{log.model || 'NA'}</td>
+              <td>{log.provider || 'NA'}</td>
+              <td>WIP</td>
               <td>
                 <button
                   className="details-button"
@@ -67,13 +82,19 @@ function LogsTable({
         {pageNumbers.map((page) => (
           <button
             key={page}
-            className={`page-button ${page === currentPage ? 'active' : ''}`}
-            onClick={() => onPageSelect(page)}
+            className={`page-button ${
+              page === String(currentPage) ? 'active' : ''
+            }`}
+            onClick={() => onPageSelect(Number(page))}
           >
             {page}
           </button>
         ))}
-        <button className="next-button" onClick={onNext} disabled={!nextToken}>
+        <button
+          className="next-button"
+          onClick={onNext}
+          disabled={isNextButtonDisabled}
+        >
           Next →
         </button>
         <span className="page-info">Page {currentPage}</span>

@@ -9,11 +9,16 @@
     "watch": "tsc -w",
     "test": "jest",
     "cdk": "cdk",
+<<<<<<< HEAD
     "deploy": "cdk deploy && ts-node scripts/seedGuardrailEmbeddings.ts"
+=======
+    "deploy-hotswap": "cd frontend-ui && npm run build && cd .. && npx cdk deploy --hotswap"
+>>>>>>> origin/pre-main
   },
   "devDependencies": {
     "@types/aws-lambda": "^8.10.148",
     "@types/jest": "^29.5.14",
+    "@types/json2csv": "^5.0.7",
     "@types/node": "^22.13.13",
     "aws-cdk": "2.1005.0",
     "esbuild": "^0.25.1",
@@ -31,6 +36,7 @@
     "@aws-sdk/client-dynamodb": "^3.772.0",
     "@aws-sdk/client-opensearchserverless": "^3.777.0",
     "@aws-sdk/client-s3": "^3.775.0",
+    "@aws-sdk/client-scheduler": "^3.782.0",
     "@aws-sdk/client-secrets-manager": "^3.775.0",
     "@aws-sdk/credential-provider-node": "^3.777.0",
     "@aws-sdk/lib-dynamodb": "^3.772.0",
@@ -43,6 +49,7 @@
     "axios": "^1.8.4",
     "constructs": "^10.4.2",
     "dotenv": "^16.4.7",
+    "json2csv": "^6.0.0-alpha.2",
     "openai": "^4.89.0",
     "parquets": "^0.10.10",
     "path": "^0.12.7",

@@ -10,6 +10,8 @@ import {
 import { getEmbedding } from './vectorSearch';
 import { checkGuardrails } from './checkGuardrails';
 import { config } from './config/config';
+import { calculateCost } from './calculateCost';
+import { CompletionResponse } from 'token.js';
 
 const SECRET_NAME = 'llm-provider-api-keys';
 const CACHE_USAGE_OBJECT = {
@@ -91,14 +93,15 @@ export default async function callLLM({ history, prompt, provider, model, log, u
             max_tokens: 500
         });
 
-        const responseText = response.choices?.[0]?.message?.content || '';
+        let responseText = response.choices?.[0]?.message?.content || '';
+        let tokensUsed = response.usage;
 
         const guardrailHit = config.guardrails.enabled 
             ? await checkGuardrails(prompt, responseText, log)
             : { isBlocked: false };
         if (guardrailHit.isBlocked && guardrailHit.match) {
             if (config.guardrails.resendOnViolation) {
-                return await callLLMwithGuardrail({ 
+                const retryResponse = await callLLMWithGuardrail({ 
                     history, 
                     prompt, 
                     provider, 
@@ -108,24 +111,34 @@ export default async function callLLM({ history, prompt, provider, model, log, u
                     llmResponse: responseText, 
                     match: guardrailHit.match, 
                     embeddedPrompt: requestEmbedding! });
-            } 
 
-            return {
-                text: config.guardrails.blockedContentResponse,
-                usage: response.usage,
-                provider: provider,
-                model: model,
-                log: log.getLog()
-            } 
-
+                responseText = retryResponse.text;
+                if (tokensUsed && retryResponse.usage) {
+                    tokensUsed.prompt_tokens += retryResponse.usage?.prompt_tokens;
+                    tokensUsed.completion_tokens += retryResponse.usage?.completion_tokens;
+                }
+            } else {
+                responseText = config.guardrails.blockedContentResponse;
+            }
         }
         // Asynchronously cache results
         if (config.cache.enableSimple) addToSimpleCache(prompt, responseText, userId, provider, model);
         if (config.cache.enableSemantic) addToSemanticCache(requestEmbedding!, prompt, responseText, userId, provider, model);
 
+        let cost;
+        if (tokensUsed) {
+          cost = calculateCost(
+            provider, 
+            model, 
+            tokensUsed.prompt_tokens, 
+            tokensUsed.completion_tokens
+          );
+        }
+        console.log('cost: ', cost);
+
         return {
             text: responseText,
-            usage: response.usage,
+            usage: tokensUsed,
             provider,
             model,
             log: log.getLog()
@@ -136,9 +149,9 @@ export default async function callLLM({ history, prompt, provider, model, log, u
     }
 }
 
-export async function callLLMwithGuardrail({ history, prompt, provider, model, log, userId, llmResponse, match, embeddedPrompt }: 
+export async function callLLMWithGuardrail({ history, prompt, provider, model, log, userId, llmResponse, match, embeddedPrompt }: 
     CallLLMArgs & { llmResponse: string, match: string, embeddedPrompt: number[] }):
-    Promise<CallLLMResponse> {
+    Promise<{ text: string, usage: CompletionResponse["usage"]}> {
     try {
 
         const tokenjs = new TokenJS();
@@ -175,9 +188,6 @@ export async function callLLMwithGuardrail({ history, prompt, provider, model, l
             return {
                 text: config.guardrails.blockedContentResponse,
                 usage: response.usage,
-                provider: provider,
-                model: model,
-                log: log.getLog()
             } 
         }
         // don't await - no need to wait here
@@ -194,9 +204,6 @@ export async function callLLMwithGuardrail({ history, prompt, provider, model, l
         return {
             text: responseText,
             usage: response.usage,
-            provider: provider,
-            model: model,
-            log: log.getLog()
         }
     } catch (error) {
         console.error(`Error in ${provider} call:`, error);
