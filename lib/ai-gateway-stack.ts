@@ -173,7 +173,7 @@ export class AiGatewayStack extends Stack {
           StorageDescriptor: {
             Columns: [
               { Name: 'id', Type: 'string' },
-              { Name: 'timestamp', Type: 'timestamp' }, // updated from 'string' for better query support
+              { Name: 'timestamp', Type: 'timestamp' },
               { Name: 'latency', Type: 'bigint' },
               { Name: 'success_reason', Type: 'string' },
               { Name: 'error_reason', Type: 'string' },
@@ -474,6 +474,12 @@ export class AiGatewayStack extends Stack {
         s3deploy.Source.data('config.js', configJsContent),
       ],
       destinationBucket: frontendBucket,
+    });
+
+    // NEW: Output the deployed website URL of the S3 frontend bucket
+    new CfnOutput(this, 'FrontendBucketUrl', {
+      value: frontendBucket.bucketWebsiteUrl,
+      description: 'URL for the deployed frontend S3 bucket website',
     });
   }
 }
