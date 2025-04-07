@@ -37,7 +37,9 @@ async function loadApiKeys() {
 export default async function callLLM({ history, prompt, provider, model, log, userId }: CallLLMArgs):
     Promise<CallLLMResponse> {
     try {
-      const simpleCacheResponse = await checkSimpleCache(prompt, userId, provider, model);
+      const simpleCacheResponse = config.cache.enableSimple 
+        ? await checkSimpleCache(prompt, userId, provider, model) 
+        : null;
       if (simpleCacheResponse) {
         log.cacheHit('simple');
         return {
@@ -50,8 +52,12 @@ export default async function callLLM({ history, prompt, provider, model, log, u
         }
       }; 
       
-      const requestEmbedding = await getEmbedding(prompt);
-      const semanticCacheResponse = await checkSemanticCache(requestEmbedding, userId, provider, model);
+      const requestEmbedding = config.cache.enableSemantic 
+        ? await getEmbedding(prompt)
+        : null;
+      const semanticCacheResponse = config.cache.enableSemantic 
+        ? await checkSemanticCache(requestEmbedding!, userId, provider, model)
+        : null;
       if (semanticCacheResponse) {
         log.cacheHit('semantic');
         return {
@@ -61,8 +67,8 @@ export default async function callLLM({ history, prompt, provider, model, log, u
           model,
           log: log.getLog(),
           semanticCacheHit: true
-        }
-      };
+        };
+      }
       
         await loadApiKeys();
         if (cachedApiKeys) {
@@ -87,7 +93,9 @@ export default async function callLLM({ history, prompt, provider, model, log, u
 
         const responseText = response.choices?.[0]?.message?.content || '';
 
-        const guardrailHit = await checkGuardrails(prompt, responseText, log);
+        const guardrailHit = config.guardrails.enabled 
+            ? await checkGuardrails(prompt, responseText, log)
+            : { isBlocked: false };
         if (guardrailHit.isBlocked && guardrailHit.match) {
             if (config.guardrails.resendOnViolation) {
                 return await callLLMwithGuardrail({ 
@@ -99,7 +107,7 @@ export default async function callLLM({ history, prompt, provider, model, log, u
                     userId, 
                     llmResponse: responseText, 
                     match: guardrailHit.match, 
-                    embeddedPrompt: requestEmbedding });
+                    embeddedPrompt: requestEmbedding! });
             } 
 
             return {
@@ -112,8 +120,8 @@ export default async function callLLM({ history, prompt, provider, model, log, u
 
         }
         // Asynchronously cache results
-        addToSimpleCache(prompt, responseText, userId, provider, model);
-        addToSemanticCache(requestEmbedding, prompt, responseText, userId, provider, model);
+        if (config.cache.enableSimple) addToSimpleCache(prompt, responseText, userId, provider, model);
+        if (config.cache.enableSemantic) addToSemanticCache(requestEmbedding!, prompt, responseText, userId, provider, model);
 
         return {
             text: responseText,
@@ -163,7 +171,6 @@ export async function callLLMwithGuardrail({ history, prompt, provider, model, l
         const responseText = response.choices?.[0]?.message?.content || '';
 
         const guardrailHit = await checkGuardrails(prompt, responseText, log);
-
         if (guardrailHit.isBlocked) {
             return {
                 text: config.guardrails.blockedContentResponse,

@@ -1,6 +1,7 @@
 import { GuardrailsConfig } from "../types";
 
 export const guardrailsConfig: GuardrailsConfig = {
+    enabled: false,
     threshold: 0.70,
     restrictedWords: [],
     sensitivityLevel: 0,
