@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { getLogsFromAthena, getLogsFromDynamo } from './services/logs.service'; // Adjust the import path
 import LogsTable from './components/LogsTable'; // Adjust the import path
-import './index.css'; // Ensure CSS is imported
 import { LogEntry } from './types/logs.types';
 import Modal from './components/Modal';
 import LogDetail from './components/LogDetails';
