@@ -5,14 +5,13 @@ import { Sha256 } from "@aws-crypto/sha256-js";
 import axios, { AxiosError } from "axios";
 import { CdkCustomResourceEvent, Context } from "aws-lambda";
 import { embedAndIndexGuardrails } from "./util/embedGuardrails";
-import * as https from "https";
 
 const region = process.env.AWS_REGION!;
 const collectionEndpoint = process.env.OPENSEARCH_ENDPOINT!;
-// const indexName = process.env.OPENSEARCH_INDEX;
+
 const service = "aoss"; // for AWS OpenSearch Serverless
 const credentialsProvider = defaultProvider();
-
+const foo = 3;
 export const handler = async (event: CdkCustomResourceEvent, context: Context) => {
   const credentials = await credentialsProvider();
 
@@ -28,8 +27,6 @@ export const handler = async (event: CdkCustomResourceEvent, context: Context) =
   const customMappings = event.ResourceProperties.mappings
     ? JSON.parse(event.ResourceProperties.mappings)
     : null;
-
-  // const physicalResourceId = `Index-${indexName}`;
 
   if (event.RequestType === "Delete") {
     const indexName = event.ResourceProperties.indexName;
@@ -55,7 +52,6 @@ export const handler = async (event: CdkCustomResourceEvent, context: Context) =
   try {
     const indexExists = await axios.request({ method, url: indexUrl, headers });
     console.log("Index already exists, response status:", indexExists.status);
-    // await sendCfnResponse(event, context, 'SUCCESS', {message: 'Index already exists'});
     return {PhysicalResourceId: `Index-${indexName}`};
   } catch (err: unknown) {
     if (err instanceof AxiosError && err.response?.status === 404) {
@@ -116,11 +112,9 @@ export const handler = async (event: CdkCustomResourceEvent, context: Context) =
       });
 
       console.log("Index created: ", response.data);
-      // await sendCfnResponse(event, context, 'SUCCESS', {message: 'Index created'});
 
     } else {
       console.error("Error checking or creating index: ", err);
-      // await sendCfnResponse(event, context, 'FAILED');
       throw err;
     }
   }
@@ -137,63 +131,3 @@ export const handler = async (event: CdkCustomResourceEvent, context: Context) =
   return {PhysicalResourceId: `Index-${indexName}`};
 };
 
-// Using Provider framework - shouldn't need this function anymore
-async function sendCfnResponse(
-  event: CdkCustomResourceEvent, 
-  context: Context, 
-  responseStatus: 'SUCCESS' | 'FAILED', 
-  responseData?: unknown, 
-  physicalResourceId?: string, 
-  noEcho?: boolean
-) {
-  console.log('full event: ', JSON.stringify(event));
-  
-  const responseBody = JSON.stringify({
-    Status: responseStatus,
-    Reason: "See the details in CloudWatch Log Stream: " + context.logStreamName,
-    PhysicalResourceId: physicalResourceId || context.logStreamName,
-    StackId: event.StackId,
-    RequestId: event.RequestId,
-    LogicalResourceId: event.LogicalResourceId,
-    NoEcho: noEcho || false,
-    Data: responseData || {},
-  });
-
-  console.log("Response body:\n", responseBody);
-
-  const parsedUrl = new URL(event.ResponseURL);
-  console.log('parsed response URL: ', parsedUrl);
-  
-  const options = {
-    hostname: parsedUrl.hostname,
-    port: 443,
-    path: parsedUrl.pathname,
-    method: "PUT",
-    headers: {
-      "content-type": "",
-      "content-length": Buffer.byteLength(responseBody)
-    }
-  };
-
-  return new Promise<void>((resolve, reject) => {
-    const request = https.request(options, (response) => {
-      console.log("CloudFormation response status code: ", response.statusCode);
-      console.log("CloudFormation response: ", JSON.stringify(response));
-      resolve();
-    });
-  
-    request.on("error", (error) => {
-      console.log("send(..) failed executing https.request(..): " + maskCredentialsAndSignature(String(error)));
-      reject(error);
-    });
-  
-    request.write(responseBody);
-    request.end();
-  });
-}
-
-function maskCredentialsAndSignature(message: string) {
-  return message
-    .replace(/X-Amz-Credential=[^&\s]+/i, 'X-Amz-Credential=*****')
-    .replace(/X-Amz-Signature=[^&\s]+/i, 'X-Amz-Signature=*****');
-}
