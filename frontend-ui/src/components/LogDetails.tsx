@@ -163,11 +163,24 @@ const LogDetail = ({ log }: LogDetailProps) => {
     if (value === null || value === undefined || value === '') return null;
 
     if (key === 'timestamp' && typeof value === 'string') {
-      return new Date(value).toLocaleString();
+      return new Date(value).toLocaleString(undefined, {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false,
+        timeZoneName: 'short',
+      });
     }
 
     if (key === 'raw_request' || key === 'raw_response' || key === 'metadata') {
       return <JsonField value={value} />;
+    }
+
+    if (key === 'is_successful') {
+      return value ? 'success' : 'failure';
     }
 
     return String(value);

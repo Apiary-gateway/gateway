@@ -89,6 +89,7 @@ function App() {
   };
 
   const handleDetailsClick = (log: LogEntry) => {
+    console.log(log.model_routing_history);
     setSelectedLog(log);
     setIsModalOpen(true);
   };
