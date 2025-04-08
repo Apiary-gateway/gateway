@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from 'react';
 import { getLogsFromAthena, getLogsFromDynamo } from './services/logs.service'; // Adjust the import path
 import LogsTable from './components/LogsTable'; // Adjust the import path

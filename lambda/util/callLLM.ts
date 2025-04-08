@@ -1,17 +1,17 @@
 import { SYSTEM_PROMPT } from './constants';
 import { TokenJS } from 'token.js';
-import { CallLLMArgs } from './types';
-import type { CompletionResponse } from 'token.js';
+import { CallLLMArgs, CallLLMResponse } from './types';
 import { SecretsManagerClient, GetSecretValueCommand } from "@aws-sdk/client-secrets-manager";
-import { RoutingLog as RoutingLogType } from './types';
-import { SupportedLLMs, ModelForProvider } from './types';
 import { addToSimpleCache, checkSimpleCache } from './simpleCache';
 import {
   addToSemanticCache,
   checkSemanticCache,
-  getEmbedding,
 } from './semanticCache';
+import { getEmbedding } from './vectorSearch';
+import { checkGuardrails } from './checkGuardrails';
+import { config } from './config/config';
 import { calculateCost } from './calculateCost';
+import { CompletionResponse } from 'token.js';
 
 const SECRET_NAME = 'llm-provider-api-keys';
 const CACHE_USAGE_OBJECT = {
@@ -37,50 +37,42 @@ async function loadApiKeys() {
 }
 
 export default async function callLLM({ history, prompt, provider, model, log, userId }: CallLLMArgs):
-    Promise<{ 
-      text: string, 
-      usage: CompletionResponse['usage'], 
-      provider: SupportedLLMs, 
-      model: ModelForProvider<typeof provider>, 
-      log: RoutingLogType,
-      simpleCacheHit?: boolean,
-      semanticCacheHit?: boolean
-    }> {
-
+    Promise<CallLLMResponse> {
     try {
-      const simpleCacheResponse = await checkSimpleCache(
-        prompt,
-        userId,
-        provider,
-        model
-      );
+      const simpleCacheResponse = config.cache.enableSimple 
+        ? await checkSimpleCache(prompt, userId, provider, model) 
+        : null;
       if (simpleCacheResponse) {
+        log.cacheHit('simple');
         return {
-          text: JSON.stringify(simpleCacheResponse) || '',
+          text: JSON.stringify(simpleCacheResponse),
           usage: CACHE_USAGE_OBJECT,
-          provider: provider,
-          model: model,
+          provider,
+          model,
           log: log.getLog(),
           simpleCacheHit: true,
         }
       }; 
       
-      // const requestEmbedding = await getEmbedding(prompt);
-      // const semanticCacheResponse =
-      //   await checkSemanticCache(requestEmbedding, userId, provider, model);
-      // if (semanticCacheResponse) {
-      //   return {
-      //     text: semanticCacheResponse || '',
-      //     usage: CACHE_USAGE_OBJECT,
-      //     provider: provider,
-      //     model: model,
-      //     log: log.getLog(),
-      //     semanticCacheHit: true
-      //   }
-      // };
+      const requestEmbedding = config.cache.enableSemantic 
+        ? await getEmbedding(prompt)
+        : null;
+      const semanticCacheResponse = config.cache.enableSemantic 
+        ? await checkSemanticCache(requestEmbedding!, userId, provider, model)
+        : null;
+      if (semanticCacheResponse) {
+        log.cacheHit('semantic');
+        return {
+          text: semanticCacheResponse,
+          usage: CACHE_USAGE_OBJECT,
+          provider,
+          model,
+          log: log.getLog(),
+          semanticCacheHit: true
+        };
+      }
       
         await loadApiKeys();
-
         if (cachedApiKeys) {
             for (const [key, value] of Object.entries(cachedApiKeys)) {
                 process.env[key] = value;
@@ -88,7 +80,83 @@ export default async function callLLM({ history, prompt, provider, model, log, u
         }
 
         const tokenjs = new TokenJS();
+        const systemPrompt = process.env.SYSTEM_PROMPT || SYSTEM_PROMPT;
+        const response = await tokenjs.chat.completions.create({
+            provider: provider,
+            model: model,
+            messages: [
+                { role: 'system', content: systemPrompt },
+                ...history,
+                { role: 'user', content: prompt }
+            ],
+            temperature: 0.7,
+            max_tokens: 500
+        });
 
+        let responseText = response.choices?.[0]?.message?.content || '';
+        let tokensUsed = response.usage;
+
+        const guardrailHit = config.guardrails.enabled 
+            ? await checkGuardrails(prompt, responseText, log)
+            : { isBlocked: false };
+        if (guardrailHit.isBlocked && guardrailHit.match) {
+            if (config.guardrails.resendOnViolation) {
+                const retryResponse = await callLLMWithGuardrail({ 
+                    history, 
+                    prompt, 
+                    provider, 
+                    model, 
+                    log, 
+                    userId, 
+                    llmResponse: responseText, 
+                    match: guardrailHit.match, 
+                    embeddedPrompt: requestEmbedding! });
+
+                responseText = retryResponse.text;
+                if (tokensUsed && retryResponse.usage) {
+                    tokensUsed.prompt_tokens += retryResponse.usage?.prompt_tokens;
+                    tokensUsed.completion_tokens += retryResponse.usage?.completion_tokens;
+                }
+            } else {
+                responseText = config.guardrails.blockedContentResponse;
+            }
+        }
+        // Asynchronously cache results
+        if (config.cache.enableSimple) addToSimpleCache(prompt, responseText, userId, provider, model);
+        if (config.cache.enableSemantic) addToSemanticCache(requestEmbedding!, prompt, responseText, userId, provider, model);
+
+        let cost;
+        if (tokensUsed) {
+          cost = calculateCost(
+            provider, 
+            model, 
+            tokensUsed.prompt_tokens, 
+            tokensUsed.completion_tokens
+          );
+        }
+        console.log('cost: ', cost);
+
+        return {
+            text: responseText,
+            usage: tokensUsed,
+            provider,
+            model,
+            log: log.getLog()
+        }
+    } catch (error) {
+        console.error(`Error in ${provider} call:`, error);
+        throw error;
+    }
+}
+
+export async function callLLMWithGuardrail({ history, prompt, provider, model, log, userId, llmResponse, match, embeddedPrompt }: 
+    CallLLMArgs & { llmResponse: string, match: string, embeddedPrompt: number[] }):
+    Promise<{ text: string, usage: CompletionResponse["usage"]}> {
+    try {
+
+        const tokenjs = new TokenJS();
+
+        log.guardrailRetry();
         const response = await tokenjs.chat.completions.create({
             provider: provider,
             model: model,
@@ -98,6 +166,15 @@ export default async function callLLM({ history, prompt, provider, model, log, u
                 {
                     role: 'user',
                     content: prompt,
+                },
+                {
+                    role: 'system',
+                    content: llmResponse,
+                },
+                { 
+                    role: 'user',
+                    content: `I'd like a response that doesn't include the word or phrase ${match}. 
+                    Can you please give me a different answer that doesn't include that sentiment?`
                 }
             ],
             temperature: 0.7,
@@ -106,33 +183,27 @@ export default async function callLLM({ history, prompt, provider, model, log, u
 
         const responseText = response.choices?.[0]?.message?.content || '';
 
-        addToSimpleCache(prompt, responseText, userId, provider, model);
-        // addToSemanticCache(
-        //   requestEmbedding,
-        //   prompt,
-        //   responseText,
-        //   userId,
-        //   provider,
-        //   model
-        // );
-
-        let cost;
-        if (response.usage?.prompt_tokens && response.usage.completion_tokens) {
-          cost = calculateCost(
-            provider, 
-            model, 
-            response.usage.prompt_tokens, 
-            response.usage.completion_tokens
-          );
+        const guardrailHit = await checkGuardrails(prompt, responseText, log);
+        if (guardrailHit.isBlocked) {
+            return {
+                text: config.guardrails.blockedContentResponse,
+                usage: response.usage,
+            } 
         }
-        console.log('cost: ', cost);
+        // don't await - no need to wait here
+        addToSimpleCache(prompt, responseText, userId, provider, model);
+        addToSemanticCache(
+          embeddedPrompt,
+          prompt,
+          responseText,
+          userId,
+          provider,
+          model
+        );
 
         return {
             text: responseText,
             usage: response.usage,
-            provider: provider,
-            model: model,
-            log: log.getLog()
         }
     } catch (error) {
         console.error(`Error in ${provider} call:`, error);
