@@ -11,7 +11,7 @@ const getLogsEndpoint = (): string => {
 
 const LOGS_BASE_URL = getLogsEndpoint();
 // const LOGS_BASE_URL =
-//   'https://mtr7cx7u23.execute-api.us-east-1.amazonaws.com/dev/logs';
+//   'https://ghoendvhxh.execute-api.us-east-2.amazonaws.com/dev/logs';
 
 export const getLogsFromDynamo = async (
   nextToken: string | null

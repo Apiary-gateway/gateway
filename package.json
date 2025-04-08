@@ -9,7 +9,7 @@
     "watch": "tsc -w",
     "test": "jest",
     "cdk": "cdk",
-    "deploy": "cdk deploy && ts-node scripts/seedGuardrailEmbeddings.ts",
+    "deploy": "cdk deploy",
     "deploy-hotswap": "cd frontend-ui && npm run build && cd .. && npx cdk deploy --hotswap"
   },
   "devDependencies": {
