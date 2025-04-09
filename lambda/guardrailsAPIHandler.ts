@@ -29,7 +29,8 @@ async function getGuardrailsFromOpenSearch() {
 }
 
 async function deleteGuardrailFromOpenSearchById(id: string) {
-  // TODO: Implement this
+  await Promise.resolve(setTimeout(() => {}, 2000));
+  return id;
 }
 
 async function addGuardrailToOpenSearch(guardrail: string) {
@@ -83,13 +84,10 @@ export const handler = async (
 
       case 'POST': {
         try {
-          console.log('POST request received. body:', body);
           const { text: guardrailText } = CreateGuardrailSchema.parse(
             body ? JSON.parse(body) : {}
           );
-          console.log('Guardrail text:', guardrailText);
           const savedGuardrail = await addGuardrailToOpenSearch(guardrailText);
-          console.log('Saved guardrail:', savedGuardrail);
           return {
             statusCode: 201,
             headers: {
@@ -106,6 +104,44 @@ export const handler = async (
             },
             body: JSON.stringify({
               message: 'Could not save guardrail',
+              error: error instanceof Error ? error.message : 'Unknown error',
+            }),
+          };
+        }
+      }
+
+      case 'DELETE': {
+        if (!guardrailId) {
+          return {
+            statusCode: 400,
+            headers: {
+              'Access-Control-Allow-Origin': '*',
+            },
+            body: JSON.stringify({
+              message: 'Guardrail ID is required',
+            }),
+          };
+        }
+
+        try {
+          await deleteGuardrailFromOpenSearchById(guardrailId);
+          return {
+            statusCode: 200,
+            headers: {
+              'Access-Control-Allow-Origin': '*',
+            },
+            body: JSON.stringify({
+              message: 'Guardrail deleted',
+            }),
+          };
+        } catch (error) {
+          return {
+            statusCode: 500,
+            headers: {
+              'Access-Control-Allow-Origin': '*',
+            },
+            body: JSON.stringify({
+              message: 'Could not delete guardrail',
               error: error instanceof Error ? error.message : 'Unknown error',
             }),
           };

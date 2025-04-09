@@ -17,7 +17,6 @@ export const getGuardrails = async () => {
 };
 
 export const addGuardrail = async (guardrailText: string) => {
-  console.log('Adding guardrail:', guardrailText);
   try {
     const response = await axios.post(`${API_BASE_URL + 'guardrails'}`, {
       text: guardrailText,
