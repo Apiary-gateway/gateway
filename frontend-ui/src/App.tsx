@@ -4,7 +4,7 @@ import LogsTable from './components/LogsTable'; // Adjust the import path
 import { LogEntry } from './types/logs.types';
 import Modal from './components/Modal';
 import LogDetail from './components/LogDetails';
-import { getGuardrails } from './services/guardrails.service';
+import Guardrails from './components/Guardrails';
 
 function App() {
   const [showAthenaLogs, setShowAthenaLogs] = useState<boolean>(false);
@@ -23,6 +23,8 @@ function App() {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
   const [selectedLog, setSelectedLog] = useState<LogEntry | null>(null);
+  const [isGuardrailsModalOpen, setIsGuardrailsModalOpen] =
+    useState<boolean>(false);
 
   const fetchLogsFromAthena = async () => {
     setIsLoading(true);
@@ -46,8 +48,6 @@ function App() {
   };
 
   const fetchLogsFromDynamo = async () => {
-    const utterances = await getGuardrails();
-    console.log(utterances);
     setIsLoading(true);
     try {
       const logsResponse = await getLogsFromDynamo(dynamoNextToken);
@@ -118,9 +118,17 @@ function App() {
     <div className="app-container">
       <header className="app-header">
         <h1>AI GATEWAY LOGS ({showAthenaLogs ? 'Athena' : 'Dynamo'})</h1>
-        <button className="toggle-button" onClick={handleToggleLogs}>
-          {showAthenaLogs ? 'Show Dynamo Logs' : 'Show Athena Logs'}
-        </button>
+        <div className="header-buttons">
+          <button className="toggle-button" onClick={handleToggleLogs}>
+            {showAthenaLogs ? 'Show Dynamo Logs' : 'Show Athena Logs'}
+          </button>
+          <button
+            className="guardrails-button"
+            onClick={() => setIsGuardrailsModalOpen(true)}
+          >
+            Manage Guardrails
+          </button>
+        </div>
       </header>
       <LogsTable
         logs={currentLogs || []}
@@ -139,6 +147,11 @@ function App() {
       {isModalOpen && selectedLog && (
         <Modal onClose={handleCloseModal}>
           <LogDetail log={selectedLog} />
+        </Modal>
+      )}
+      {isGuardrailsModalOpen && (
+        <Modal onClose={() => setIsGuardrailsModalOpen(false)}>
+          <Guardrails onClose={() => setIsGuardrailsModalOpen(false)} />
         </Modal>
       )}
     </div>
