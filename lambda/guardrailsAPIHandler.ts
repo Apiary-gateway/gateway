@@ -54,7 +54,11 @@ async function deleteGuardrailFromOpenSearchById(id: string) {
 }
 
 async function addGuardrailToOpenSearch(guardrail: string) {
-  await Promise.resolve(setTimeout(() => {}, 2000));
+  const data = await signedPost(`/${OPENSEARCH_GUARDRAILS_INDEX}/_doc`, {
+    text: guardrail,
+  });
+
+  console.log('data inaddGuardrailToOpenSearch', data);
   return {
     id: String(Math.random()),
     text: guardrail,
