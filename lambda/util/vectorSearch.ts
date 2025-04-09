@@ -25,11 +25,9 @@ export async function getEmbedding(text: string): Promise<number[]> {
   return body.embedding;
 }
 
-
 export async function indexVector(index: string, document: object) {
   return await signedPost(`/${index}/_doc`, document);
 }
-
 
 export async function searchKNN(
     index: string,

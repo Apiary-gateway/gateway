@@ -1,22 +1,22 @@
 import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
 import { Readable } from 'stream';
 import { Config } from './types';
-import { defaultConfig } from './config/defaultConfig';
+import defaultConfig from './defaultConfig/config.json';
 
 const s3 = new S3Client({});
 const bucket = process.env.CONFIG_BUCKET_NAME!;
 let cachedConfig: Config | null = null;
 
 async function streamToString(stream: Readable): Promise<string> {
-  const chunks: Uint8Array[] = [];
-  for await (const chunk of stream) {
-    chunks.push(typeof chunk === 'string' ? Buffer.from(chunk) : chunk);
-  }
-  return Buffer.concat(chunks).toString('utf-8');
+    const chunks: Uint8Array[] = [];
+    for await (const chunk of stream) {
+        chunks.push(typeof chunk === 'string' ? Buffer.from(chunk) : chunk);
+    }
+    return Buffer.concat(chunks).toString('utf-8');
 }
 
 export async function initConfig(): Promise<void> {
-    console.log('initializing config...')
+
     if (cachedConfig) return;
 
     try {
@@ -30,9 +30,10 @@ export async function initConfig(): Promise<void> {
 
         cachedConfig = config;
     } catch (error) {
-        console.warn('defaultConfig fallback:', JSON.stringify(defaultConfig, null, 2));
-
         console.warn('Failed to load config from S3, using defaults:', error);
+        if (!isValidConfig(defaultConfig)) {
+            throw new Error('Invalid default config structure');
+        }
         cachedConfig = defaultConfig;
     }
 }

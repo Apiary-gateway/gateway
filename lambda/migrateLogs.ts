@@ -3,6 +3,7 @@ import {
   ScanCommand,
   BatchWriteItemCommand,
   AttributeValue,
+  ScanCommandOutput
 } from '@aws-sdk/client-dynamodb';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import * as parquets from 'parquets';
@@ -170,7 +171,7 @@ async function scanOldLogs(cutoffDate: Date): Promise<any[]> {
       JSON.stringify(ExclusiveStartKey)
     );
 
-    const result = await ddb.send(
+    const result: ScanCommandOutput = await ddb.send(
       new ScanCommand({
         TableName: TABLE_NAME,
         FilterExpression: '#ts <= :cutoff',

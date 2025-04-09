@@ -286,11 +286,17 @@ export class AiGatewayStack extends Stack {
     // guardrailsBucket.grantRead(semanticCacheLambdaRole);
     // SEMANTIC CACHE / GUARDRAILS ITEMS END
 
-    // Bucket for config file
+    // s3 Bucket for config file
     const configBucket = new s3.Bucket(this, 'ConfigBucket', {
       bucketName: 'gateway-config-bucket',
       removalPolicy: RemovalPolicy.DESTROY,
       autoDeleteObjects: true,
+    });
+
+    new s3deploy.BucketDeployment(this, 'DeployDefaultConfig', {
+      sources: [s3deploy.Source.asset(path.join(__dirname, '../lambda/util/defaultConfig'))],
+      destinationBucket: configBucket,
+      destinationKeyPrefix: 'configs/',
     });
 
     // Secrets Manager for API Keys
@@ -447,6 +453,16 @@ export class AiGatewayStack extends Stack {
       })
     );
 
+    // Get and Put Config Lambda
+    const presignedUrlLambda = new lambdaNode.NodejsFunction(this, 'PresignedUrlConfigLambda', {
+      entry: path.join(__dirname, '../lambda/presignedUrlConfig.ts'),
+      handler: 'handler',
+      runtime: lambda.Runtime.NODEJS_18_X,
+      environment: {
+        CONFIG_BUCKET_NAME: configBucket.bucketName,
+      },
+    });
+
     // Logs Lambda
     const logsFn = new lambdaNode.NodejsFunction(this, 'LogsFunction', {
       entry: 'lambda/logs.ts',
@@ -549,6 +565,7 @@ export class AiGatewayStack extends Stack {
     messageTable.grantReadWriteData(routerFn);
     logBucket.grantReadWrite(logsFn);
     configBucket.grantRead(routerFn);
+    configBucket.grantReadWrite(presignedUrlLambda);
 
     logsFn.addToRolePolicy(
       new iam.PolicyStatement({
@@ -611,6 +628,12 @@ export class AiGatewayStack extends Stack {
       apiKeyRequired: false,
     });
 
+    const presignedUrlConfigResource = api.root.addResource('config');
+    const configIntegration = new apigateway.LambdaIntegration(presignedUrlLambda); 
+    presignedUrlConfigResource.addMethod('GET', configIntegration, {
+      apiKeyRequired: false,
+    });
+
     // OPTIONS method for CORS preflight
     const optionsIntegration = new apigateway.MockIntegration({
       integrationResponses: [
@@ -667,12 +690,14 @@ export class AiGatewayStack extends Stack {
       })
     );
 
-    // Define the logs endpoint
+    // Define the logs and config endpoints
     const logsEndpoint = `${api.url}logs`;
+    const configEndpoint = `${api.url}config`;
 
-    // Inject the endpoint via config.js
+    // Inject the endpoints via config.js
     const configJsContent = `
       window.LOGS_ENDPOINT = ${JSON.stringify(logsEndpoint)};
+      window.CONFIG_ENDPOINT = ${JSON.stringify(configEndpoint)};
     `;
 
     // Deploy frontend from /frontend-ui/dist
