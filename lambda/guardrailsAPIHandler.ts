@@ -1,18 +1,46 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
 import { Readable } from 'stream';
+import { z } from 'zod';
+
+const CreateGuardrailSchema = z.object({
+  text: z.string(),
+});
+
+// STEPS
+// 1. Give permission
+// 2. add env var for opensearch endpoint
+// 3.
 
 const s3 = new S3Client({});
 
-// helper to convert stream to string
-async function streamToString(stream: Readable): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const chunks: Buffer[] = [];
-    stream.on('data', (chunk) => chunks.push(chunk));
-    stream.on('error', reject);
-    stream.on('end', () => resolve(Buffer.concat(chunks).toString('utf-8')));
-  });
+async function getGuardrailsFromOpenSearch() {
+  await Promise.resolve(setTimeout(() => {}, 2000));
+  return [
+    {
+      id: String(Math.random()),
+      text: 'Guardrail 1',
+    },
+    {
+      id: String(Math.random()),
+      text: 'Guardrail 2',
+    },
+  ];
 }
+
+async function deleteGuardrailFromOpenSearchById(id: string) {
+  // TODO: Implement this
+}
+
+async function addGuardrailToOpenSearch(guardrail: string) {
+  await Promise.resolve(setTimeout(() => {}, 2000));
+  return {
+    id: String(Math.random()),
+    text: guardrail,
+  };
+}
+
+// helper to convert stream to string
 
 export const handler = async (
   event: APIGatewayProxyEvent
@@ -21,34 +49,68 @@ export const handler = async (
   const guardrailId = pathParameters?.id;
   const { GUARDRAILS_BUCKET = '', GUARDRAILS_KEY = '' } = process.env;
 
+  console.log({
+    httpMethod: httpMethod,
+    pathParameters: pathParameters,
+    body: body,
+  });
+
   try {
     switch (httpMethod) {
       case 'GET': {
-        // GET the object
-        const getObjectResp = await s3.send(
-          new GetObjectCommand({
-            Bucket: GUARDRAILS_BUCKET,
-            Key: GUARDRAILS_KEY,
-          })
-        );
-
-        // read the body stream
-        const fileBody = getObjectResp.Body
-          ? await streamToString(getObjectResp.Body as Readable)
-          : '[]';
-
-        const utterances = JSON.parse(fileBody);
-
-        return {
-          statusCode: 200,
-          headers: {
-            'Access-Control-Allow-Origin': '*',
-          },
-          body: JSON.stringify(utterances),
-        };
+        try {
+          const guardrails = await getGuardrailsFromOpenSearch();
+          return {
+            statusCode: 200,
+            headers: {
+              'Access-Control-Allow-Origin': '*',
+            },
+            body: JSON.stringify(guardrails),
+          };
+        } catch (error) {
+          return {
+            statusCode: 500,
+            headers: {
+              'Access-Control-Allow-Origin': '*',
+            },
+            body: JSON.stringify({
+              message: 'Internal Server Error',
+              error: (error as Error).message,
+            }),
+          };
+        }
       }
 
-      // ... POST, DELETE, default, etc. ...
+      case 'POST': {
+        try {
+          console.log('POST request received. body:', body);
+          const { text: guardrailText } = CreateGuardrailSchema.parse(
+            body ? JSON.parse(body) : {}
+          );
+          console.log('Guardrail text:', guardrailText);
+          const savedGuardrail = await addGuardrailToOpenSearch(guardrailText);
+          console.log('Saved guardrail:', savedGuardrail);
+          return {
+            statusCode: 201,
+            headers: {
+              'Access-Control-Allow-Origin': '*',
+            },
+            body: JSON.stringify(savedGuardrail),
+          };
+        } catch (error) {
+          console.error('Error in POST request:', error);
+          return {
+            statusCode: 400,
+            headers: {
+              'Access-Control-Allow-Origin': '*',
+            },
+            body: JSON.stringify({
+              message: 'Could not save guardrail',
+              error: error instanceof Error ? error.message : 'Unknown error',
+            }),
+          };
+        }
+      }
 
       default:
         return {

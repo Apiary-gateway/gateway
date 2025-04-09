@@ -1,19 +1,19 @@
 import axios from 'axios';
 import { LogsResponse, LogsResponseSchema } from '../types/logs.types';
 
-const getApiEndpoint = (): string => {
-  console.log(window);
-  if (typeof window !== 'undefined' && 'API_ENDPOINT' in window) {
-    return (window as any).API_ENDPOINT;
-  }
-  alert('API_ENDPOINT not configured');
-  throw new Error();
-};
+// const getApiEndpoint = (): string => {
+//   console.log(window);
+//   if (typeof window !== 'undefined' && 'API_ENDPOINT' in window) {
+//     return (window as any).API_ENDPOINT;
+//   }
+//   alert('API_ENDPOINT not configured');
+//   throw new Error();
+// };
 
-export const API_BASE_URL = getApiEndpoint();
+// export const API_BASE_URL = getApiEndpoint();
 
-// export const API_BASE_URL =
-//   'https://doviowvjr7.execute-api.us-east-1.amazonaws.com/dev/';
+export const API_BASE_URL =
+  'https://doviowvjr7.execute-api.us-east-1.amazonaws.com/dev/';
 
 export const getLogsFromDynamo = async (
   nextToken: string | null

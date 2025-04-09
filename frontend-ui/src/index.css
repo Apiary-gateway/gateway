@@ -462,6 +462,17 @@ body {
   display: flex;
   gap: 8px;
   margin-bottom: 8px;
+  align-items: center;
+}
+
+.guardrail-text {
+  flex: 1;
+  padding: 8px 12px;
+  background-color: #2d2d2d;
+  border: 1px solid #4a4a4a;
+  border-radius: 4px;
+  color: #d1d5db;
+  font-size: 14px;
 }
 
 .guardrail-input {
@@ -503,6 +514,7 @@ body {
   justify-content: center;
   transition: opacity 0.3s;
   border-radius: 4px;
+  order: -1; /* Move to the left */
 }
 
 .delete-button:hover:not(:disabled) {
@@ -542,10 +554,29 @@ body {
 .add-button {
   background-color: #4caf50;
   color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 8px 24px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 80px;
 }
 
-.add-button:hover {
+.add-button:hover:not(:disabled) {
   background-color: #45a049;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.add-button:disabled {
+  background-color: #2d2d2d;
+  cursor: not-allowed;
+  opacity: 0.7;
 }
 
 .submit-button {

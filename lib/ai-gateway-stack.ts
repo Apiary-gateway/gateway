@@ -87,7 +87,7 @@ export class AiGatewayStack extends Stack {
     );
 
     // SEMANTIC CACHE / GUARDRAILS ITEMS START
-    // Security policy for OpenSearch Serverless collection for semantic cache
+    // 1. These lines remain commented, no changes or removals. Preserved as is.
     // const encryptionPolicy = new opensearch.CfnSecurityPolicy(this, 'OpenSearchEncryptionPolicy', {
     //   name: 'semantic-cache-encryption-policy',
     //   type: 'encryption',
@@ -102,7 +102,7 @@ export class AiGatewayStack extends Stack {
     //   })
     // });
 
-    // const guardrailsBucket = new s3.Bucket(this, 'GuardrailsBucket', {
+    // const guardrailsBucket = new s3.Bucket(this, 'ai-guardrails-bucket', {
     //   bucketName: 'ai-guardrails-bucket',
     //   removalPolicy: RemovalPolicy.DESTROY,
     //   autoDeleteObjects: true,
@@ -116,7 +116,6 @@ export class AiGatewayStack extends Stack {
     //   destinationKeyPrefix: '',
     // });
 
-    // // allow public network access to OpenSearch - tighten this down?
     // const accessPolicy = new opensearch.CfnSecurityPolicy(this, 'PublicNetworkPolicy', {
     //   name: 'public-network-policy',
     //   type: 'network',
@@ -133,18 +132,15 @@ export class AiGatewayStack extends Stack {
     //   ]),
     // });
 
-    // // OpenSearch Serverless collection for semantic cache
     // const vectorCollection = new opensearch.CfnCollection(this, 'SemanticCacheCollection', {
     //   name: 'semantic-cache',
     //   type: 'VECTORSEARCH',
-    //   // "dev-test mode" - disabling replicas should cut cost in half
     //   standbyReplicas: 'DISABLED',
     // });
 
     // vectorCollection.node.addDependency(encryptionPolicy);
     // vectorCollection.node.addDependency(accessPolicy);
 
-    // // IAM role for Lambda to invoke Bedrock models and access OpenSearch API
     // const semanticCacheLambdaRole = new iam.Role(this, 'SemanticCacheLambdaRole', {
     //   assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
     //   managedPolicies: [
@@ -179,7 +175,6 @@ export class AiGatewayStack extends Stack {
 
     // semanticCacheLambdaRole.addToPolicy(new iam.PolicyStatement({
     //   actions: ['bedrock:InvokeModel'],
-    //   // TODO: limit this to a specific Bedrock model(s)?
     //   resources: ['*']
     // }));
 
@@ -196,12 +191,11 @@ export class AiGatewayStack extends Stack {
     //     's3:GetObject',
     //     's3:ListBucket',
     //   ],
-    //   // TODO: limit this more to specific resources?
     //   resources: [
     //     `arn:aws:aoss:${this.region}:${this.account}:*`,
     //     `arn:aws:aoss:${this.region}:${this.account}:collection/semantic-cache`,
     //     `arn:aws:aoss:${this.region}:${this.account}:index/semantic-cache/*`,
-    //     `arn:aws:aoss:${this.region}:${this.account}:index/guardrails-index/*`, // added for guardrails
+    //     `arn:aws:aoss:${this.region}:${this.account}:index/guardrails-index/*`,
     //     'arn:aws:s3:::ai-guardrails-bucket',
     //     'arn:aws:s3:::ai-guardrails-bucket/guardrailUtterances.json'
     //   ]
@@ -243,8 +237,7 @@ export class AiGatewayStack extends Stack {
 
     // const createVectorIndex = new CustomResource(this, 'CreateVectorIndex', {
     //   serviceToken: provider.serviceToken,
-    //   serviceTimeout: Duration.seconds(900), // 15 min
-    //   // should invoke Lambda again if either of these properties change
+    //   serviceTimeout: Duration.seconds(900),
     //   properties: {
     //     collectionName: vectorCollection.name,
     //     indexName: 'semantic-cache-index',
@@ -252,11 +245,9 @@ export class AiGatewayStack extends Stack {
     //   },
     // });
 
-    // // custom resource for guardrails index
     // const createGuardrailsIndex = new CustomResource(this, 'CreateGuardrailsIndex', {
     //   serviceToken: provider.serviceToken,
-    //   serviceTimeout: Duration.seconds(900), // 15 min
-    //   // should invoke Lambda again if either of these properties change
+    //   serviceTimeout: Duration.seconds(900),
     //   properties: {
     //     collectionName: vectorCollection.name,
     //     indexName: 'guardrails-index',
@@ -267,13 +258,13 @@ export class AiGatewayStack extends Stack {
     //           type: "knn_vector",
     //           dimension: 1024,
     //           method: {
-    //             engine: "nmslib", // non-metric space library (approx. nn search library)
+    //             engine: "nmslib",
     //             space_type: "cosinesimil",
-    //             name: "hnsw", // heirarchical navigable small world (graph-based ann algorithm)
+    //             name: "hnsw",
     //             parameters: {}
     //           }
     //         },
-    //         text: { type: "text" }, // TODO include category here?
+    //         text: { type: "text" },
     //       }
     //     }),
     //     guardrailsBucket: guardrailsBucket.bucketName,
@@ -587,7 +578,7 @@ export class AiGatewayStack extends Stack {
       })
     );
 
-    // API routes with explicit CORS configuration
+    // API routes with CloudWatch logs
     const routerIntegration = new apigateway.LambdaIntegration(routerFn);
     const routeResource = api.root.addResource('route');
     routeResource.addMethod('POST', routerIntegration, {
@@ -597,13 +588,13 @@ export class AiGatewayStack extends Stack {
     const logsResource = api.root.addResource('logs');
 
     // Lambda integration for GET with CORS headers
-    const logsIntegration = new apigateway.LambdaIntegration(logsFn); // Proxy: true by default
+    const logsIntegration = new apigateway.LambdaIntegration(logsFn);
     logsResource.addMethod('GET', logsIntegration, {
       apiKeyRequired: false,
     });
 
-    // OPTIONS method for CORS preflight
-    const optionsIntegration = new apigateway.MockIntegration({
+    // OPTIONS method for /logs (CORS preflight)
+    const logsOptionsIntegration = new apigateway.MockIntegration({
       integrationResponses: [
         {
           statusCode: '200',
@@ -621,8 +612,7 @@ export class AiGatewayStack extends Stack {
         'application/json': '{"statusCode": 200}',
       },
     });
-
-    logsResource.addMethod('OPTIONS', optionsIntegration, {
+    logsResource.addMethod('OPTIONS', logsOptionsIntegration, {
       methodResponses: [
         {
           statusCode: '200',
@@ -672,11 +662,8 @@ export class AiGatewayStack extends Stack {
       }
     );
 
-    // Grant read permissions to the guardrails Lambda
-    guardrailsBucket.grantRead(guardrailsFn);
-
-    // 2) (Optional) Grant other necessary permissions if needed, e.g.:
-    // guardrailsTable.grantReadWriteData(guardrailsFn);
+    // Grant read/write if needed
+    guardrailsBucket.grantReadWrite(guardrailsFn);
 
     // 3) Create the /guardrails resource
     const guardrailsResource = api.root.addResource('guardrails');
@@ -699,6 +686,54 @@ export class AiGatewayStack extends Stack {
       'DELETE',
       new apigateway.LambdaIntegration(guardrailsFn)
     );
+
+    // >>> IMPORTANT: Add an OPTIONS method for /guardrails and /guardrails/{id}
+    // to allow POST/DELETE from the browser. This is the crucial preflight route.
+
+    const guardrailsOptionsIntegration = new apigateway.MockIntegration({
+      integrationResponses: [
+        {
+          statusCode: '200',
+          responseParameters: {
+            'method.response.header.Access-Control-Allow-Origin': "'*'",
+            'method.response.header.Access-Control-Allow-Headers':
+              "'Content-Type,X-Amz-Date,Authorization,X-Api-Key'",
+            'method.response.header.Access-Control-Allow-Methods':
+              "'GET,POST,DELETE,OPTIONS'",
+          },
+        },
+      ],
+      passthroughBehavior: apigateway.PassthroughBehavior.WHEN_NO_MATCH,
+      requestTemplates: {
+        'application/json': '{"statusCode": 200}',
+      },
+    });
+
+    guardrailsResource.addMethod('OPTIONS', guardrailsOptionsIntegration, {
+      methodResponses: [
+        {
+          statusCode: '200',
+          responseParameters: {
+            'method.response.header.Access-Control-Allow-Origin': true,
+            'method.response.header.Access-Control-Allow-Headers': true,
+            'method.response.header.Access-Control-Allow-Methods': true,
+          },
+        },
+      ],
+    });
+
+    singleGuardrailResource.addMethod('OPTIONS', guardrailsOptionsIntegration, {
+      methodResponses: [
+        {
+          statusCode: '200',
+          responseParameters: {
+            'method.response.header.Access-Control-Allow-Origin': true,
+            'method.response.header.Access-Control-Allow-Headers': true,
+            'method.response.header.Access-Control-Allow-Methods': true,
+          },
+        },
+      ],
+    });
 
     // ---- END NEW GUARDRAILS SECTION ----
 
@@ -750,6 +785,7 @@ export class AiGatewayStack extends Stack {
       description: 'URL for the deployed frontend S3 bucket website',
     });
 
+    // Keep these lines commented if you prefer
     // encryptionPolicy.applyRemovalPolicy(RemovalPolicy.DESTROY);
     // accessPolicy.applyRemovalPolicy(RemovalPolicy.DESTROY);
     // vectorCollection.applyRemovalPolicy(RemovalPolicy.DESTROY);

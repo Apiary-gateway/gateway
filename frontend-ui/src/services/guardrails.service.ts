@@ -1,21 +1,40 @@
 import axios from 'axios';
 import { API_BASE_URL } from './logs.service';
-import { z } from 'zod';
-
-const GetGuardrailsSchema = z.array(z.coerce.string());
+import {
+  GetGuardrailsResponseSchema,
+  SingleGuardrailSchema,
+} from '../types/guardrails.types';
 
 export const getGuardrails = async () => {
   try {
     const { data } = await axios.get(`${API_BASE_URL + 'guardrails'}`);
-    return GetGuardrailsSchema.parse(data);
+    const guardrails = GetGuardrailsResponseSchema.parse(data);
+    return guardrails;
   } catch (error) {
     console.error('Error fetching guardrails:', error);
-    alert('Error fetching guardrails');
-    return [];
+    throw error;
   }
 };
 
-export const submitGuardrails = async (guardrails: string[]) => {
-  await new Promise((resolve) => setTimeout(resolve, 1000));
-  return guardrails;
+export const addGuardrail = async (guardrailText: string) => {
+  console.log('Adding guardrail:', guardrailText);
+  try {
+    const response = await axios.post(`${API_BASE_URL + 'guardrails'}`, {
+      text: guardrailText,
+    });
+    const newGuardrail = SingleGuardrailSchema.parse(response.data);
+    return newGuardrail;
+  } catch (error) {
+    console.error('Error adding guardrail:', error);
+    throw error;
+  }
+};
+
+export const deleteGuardrail = async (id: string) => {
+  try {
+    await axios.delete(`${API_BASE_URL + 'guardrails'}/${id}`);
+  } catch (error) {
+    console.error('Error deleting guardrail:', error);
+    throw error;
+  }
 };
