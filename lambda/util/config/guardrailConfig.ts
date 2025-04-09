@@ -1,10 +1,10 @@
 import { GuardrailsConfig } from "../types";
 
 export const guardrailsConfig: GuardrailsConfig = {
-    enabled: false,
+    enabled: false, // true if guardrails are needed
     threshold: 0.70,
     restrictedWords: [],
-    sensitivityLevel: 0,
+    sensitivityLevel: 2,
     resendOnViolation: false, 
     blockedContentResponse: 'Content redacted'
 }

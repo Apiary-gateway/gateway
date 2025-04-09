@@ -1,10 +1,10 @@
-
 import { useEffect, useState } from 'react';
 import { getLogsFromAthena, getLogsFromDynamo } from './services/logs.service'; // Adjust the import path
 import LogsTable from './components/LogsTable'; // Adjust the import path
 import { LogEntry } from './types/logs.types';
 import Modal from './components/Modal';
 import LogDetail from './components/LogDetails';
+import { getGuardrails } from './services/guardrails.service';
 
 function App() {
   const [showAthenaLogs, setShowAthenaLogs] = useState<boolean>(false);
@@ -46,6 +46,8 @@ function App() {
   };
 
   const fetchLogsFromDynamo = async () => {
+    const utterances = await getGuardrails();
+    console.log(utterances);
     setIsLoading(true);
     try {
       const logsResponse = await getLogsFromDynamo(dynamoNextToken);

@@ -1,58 +1,58 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
+import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
+import { Readable } from 'stream';
+
+const s3 = new S3Client({});
+
+// helper to convert stream to string
+async function streamToString(stream: Readable): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const chunks: Buffer[] = [];
+    stream.on('data', (chunk) => chunks.push(chunk));
+    stream.on('error', reject);
+    stream.on('end', () => resolve(Buffer.concat(chunks).toString('utf-8')));
+  });
+}
 
 export const handler = async (
   event: APIGatewayProxyEvent
 ): Promise<APIGatewayProxyResult> => {
   const { httpMethod, pathParameters, body } = event;
   const guardrailId = pathParameters?.id;
+  const { GUARDRAILS_BUCKET = '', GUARDRAILS_KEY = '' } = process.env;
 
   try {
     switch (httpMethod) {
-      case 'GET':
-        // Handle GET /guardrails
-        // Fetch and return guardrails from DB or wherever
+      case 'GET': {
+        // GET the object
+        const getObjectResp = await s3.send(
+          new GetObjectCommand({
+            Bucket: GUARDRAILS_BUCKET,
+            Key: GUARDRAILS_KEY,
+          })
+        );
+
+        // read the body stream
+        const fileBody = getObjectResp.Body
+          ? await streamToString(getObjectResp.Body as Readable)
+          : '[]';
+
+        const utterances = JSON.parse(fileBody);
+
         return {
           statusCode: 200,
-          body: JSON.stringify({
-            message: 'GET /guardrails successful',
-            data: [
-              /* Example array of guardrail objects */
-            ],
-          }),
+          headers: {
+            'Access-Control-Allow-Origin': '*',
+          },
+          body: JSON.stringify(utterances),
         };
+      }
 
-      case 'POST':
-        // Handle POST /guardrails
-        // Parse incoming JSON
-        const newGuardrail = body ? JSON.parse(body) : {};
-        // Insert into a DB or other store
-        return {
-          statusCode: 201,
-          body: JSON.stringify({
-            message: 'Created new guardrail',
-            data: newGuardrail,
-          }),
-        };
-
-      case 'DELETE':
-        // Handle DELETE /guardrails/{id}
-        if (!guardrailId) {
-          return {
-            statusCode: 400,
-            body: JSON.stringify({ message: 'Missing guardrail ID in path.' }),
-          };
-        }
-        // Delete the guardrail from DB
-        return {
-          statusCode: 200,
-          body: JSON.stringify({
-            message: `Deleted guardrail with id: ${guardrailId}`,
-          }),
-        };
+      // ... POST, DELETE, default, etc. ...
 
       default:
         return {
-          statusCode: 405, // Method Not Allowed
+          statusCode: 405,
           body: JSON.stringify({
             message: `Method ${httpMethod} not allowed.`,
           }),

@@ -1,23 +1,26 @@
 import axios from 'axios';
 import { LogsResponse, LogsResponseSchema } from '../types/logs.types';
 
-// const getLogsEndpoint = (): string => {
-//   if (typeof window !== 'undefined' && 'LOGS_ENDPOINT' in window) {
-//     return (window as any).LOGS_ENDPOINT;
-//   }
-//   alert('LOGS_ENDPOINT not configured');
-//   throw new Error();
-// };
+const getApiEndpoint = (): string => {
+  console.log(window);
+  if (typeof window !== 'undefined' && 'API_ENDPOINT' in window) {
+    return (window as any).API_ENDPOINT;
+  }
+  alert('API_ENDPOINT not configured');
+  throw new Error();
+};
 
-// const LOGS_BASE_URL = getLogsEndpoint();
-const LOGS_BASE_URL =
-  'https://mtr7cx7u23.execute-api.us-east-1.amazonaws.com/dev/logs';
+export const API_BASE_URL = getApiEndpoint();
+
+// export const API_BASE_URL =
+//   'https://doviowvjr7.execute-api.us-east-1.amazonaws.com/dev/';
 
 export const getLogsFromDynamo = async (
   nextToken: string | null
 ): Promise<LogsResponse> => {
+  console.log(API_BASE_URL);
   try {
-    const { data } = await axios.get(`${LOGS_BASE_URL}`, {
+    const { data } = await axios.get(`${API_BASE_URL + 'logs'}`, {
       params: {
         nextToken,
       },
@@ -37,7 +40,7 @@ export const getLogsFromAthena = async (
   queryExecutionId: string | null
 ) => {
   try {
-    const { data } = await axios.get(`${LOGS_BASE_URL}`, {
+    const { data } = await axios.get(`${API_BASE_URL + 'logs'}`, {
       params: {
         nextToken,
         queryExecutionId,

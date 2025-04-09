@@ -637,6 +637,21 @@ export class AiGatewayStack extends Stack {
 
     // ---- NEW GUARDRAILS SECTION ----
 
+    // Create the guardrails S3 bucket
+    const guardrailsBucket = new s3.Bucket(this, 'GuardrailsBucketNew', {
+      removalPolicy: RemovalPolicy.DESTROY,
+      autoDeleteObjects: true,
+      publicReadAccess: false,
+      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
+    });
+
+    // Deploy your guardrailUtterances.json into that bucket
+    new s3deploy.BucketDeployment(this, 'DeployGuardrailsJsonNew', {
+      sources: [s3deploy.Source.asset(path.join(__dirname, '../lambda/json'))],
+      destinationBucket: guardrailsBucket,
+      destinationKeyPrefix: '',
+    });
+
     // 1) Create the new Guardrails Lambda
     const guardrailsFn = new lambdaNode.NodejsFunction(
       this,
@@ -651,14 +666,16 @@ export class AiGatewayStack extends Stack {
           externalModules: ['aws-sdk'],
         },
         environment: {
-          // Add any environment variables you need here
-          GUARDRAILS_TABLE_NAME: 'some-guardrails-dynamo-table', // Example usage
+          GUARDRAILS_BUCKET: guardrailsBucket.bucketName,
+          GUARDRAILS_KEY: 'guardrailUtterances.json',
         },
       }
     );
 
-    // 2) (Optional) Grant necessary permissions to guardrailsFn if needed:
-    // e.g., if you have a guardrails table:
+    // Grant read permissions to the guardrails Lambda
+    guardrailsBucket.grantRead(guardrailsFn);
+
+    // 2) (Optional) Grant other necessary permissions if needed, e.g.:
     // guardrailsTable.grantReadWriteData(guardrailsFn);
 
     // 3) Create the /guardrails resource
@@ -709,11 +726,11 @@ export class AiGatewayStack extends Stack {
     );
 
     // Define the logs endpoint
-    const logsEndpoint = `${api.url}logs`;
+    const apiEndpoint = `${api.url}`;
 
     // Inject the endpoint via config.js
     const configJsContent = `
-      window.LOGS_ENDPOINT = ${JSON.stringify(logsEndpoint)};
+      window.API_ENDPOINT = ${JSON.stringify(apiEndpoint)};
     `;
 
     // Deploy frontend from /frontend-ui/dist
