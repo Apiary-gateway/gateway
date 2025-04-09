@@ -9,9 +9,9 @@ import {
 } from './semanticCache';
 import { getEmbedding } from './vectorSearch';
 import { checkGuardrails } from './checkGuardrails';
-import { config } from './config/config';
 import { calculateCost } from './calculateCost';
 import { CompletionResponse } from 'token.js';
+import { getConfig } from './getConfig';
 
 const SECRET_NAME = 'llm-provider-api-keys';
 const CACHE_USAGE_OBJECT = {
@@ -39,6 +39,7 @@ async function loadApiKeys() {
 export default async function callLLM({ history, prompt, provider, model, log, userId }: CallLLMArgs):
     Promise<CallLLMResponse> {
     try {
+        const config = getConfig();
       const simpleCacheResponse = config.cache.enableSimple 
         ? await checkSimpleCache(prompt, userId, provider, model) 
         : null;
@@ -153,7 +154,7 @@ export async function callLLMWithGuardrail({ history, prompt, provider, model, l
     CallLLMArgs & { llmResponse: string, match: string, embeddedPrompt: number[] }):
     Promise<{ text: string, usage: CompletionResponse["usage"]}> {
     try {
-
+        const config = getConfig();
         const tokenjs = new TokenJS();
 
         log.guardrailRetry();

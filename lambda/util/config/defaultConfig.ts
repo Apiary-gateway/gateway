@@ -1,6 +1,6 @@
 import { Config } from "../types";
 
-export const config: Config = {
+export const defaultConfig: Config = {
   routing: {
     enableFallbacks: true,
     fallbackModel: { provider: 'anthropic', model: 'claude-3-5-haiku-20241022' },

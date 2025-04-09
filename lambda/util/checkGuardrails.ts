@@ -1,5 +1,5 @@
 import { getEmbedding, searchKNN } from "./vectorSearch";
-import { guardrailsConfig } from "./config/guardrailConfig";
+import { getConfig } from "./getConfig";
 import { split as splitSentences } from 'sentence-splitter';
 import { GuardrailResult } from "./types";
 import { RoutingLog } from './routingLog';
@@ -7,7 +7,8 @@ import { RoutingLog } from './routingLog';
 const guardrailsIndex = process.env.OPENSEARCH_GUARDRAILS_INDEX;
 
 function checkGuardrailsLevelOne(llmResponse: string, log: RoutingLog): GuardrailResult {
-    for (const word of guardrailsConfig.restrictedWords) {
+    const config = getConfig();
+    for (const word of config.guardrails.restrictedWords) {
         if (llmResponse.toLowerCase().includes(word.toLowerCase())) {
             log.guardrailHit('one', word)
             return { isBlocked: true, match: word };
@@ -17,6 +18,7 @@ function checkGuardrailsLevelOne(llmResponse: string, log: RoutingLog): Guardrai
 }
 
 export async function checkGuardrailsLevelTwo(prompt: string, llmResponse: string, log: RoutingLog): Promise<GuardrailResult> {
+    const config = getConfig();
     const chunks = chunkTextBySentences(prompt + '. ' + llmResponse, 3);
 
     if (!guardrailsIndex) {
@@ -29,7 +31,7 @@ export async function checkGuardrailsLevelTwo(prompt: string, llmResponse: strin
         const topMatch = matches[0];
         const similarity = topMatch._score ?? 0;
 
-        if (similarity > guardrailsConfig.threshold) {
+        if (similarity > config.guardrails.threshold) {
             log.guardrailHit('two', topMatch._source.text)
             return { isBlocked: true, match: topMatch._source.text };
         }
@@ -39,8 +41,10 @@ export async function checkGuardrailsLevelTwo(prompt: string, llmResponse: strin
 }
 
 export async function checkGuardrails(prompt: string, llmResponse: string, log: RoutingLog): Promise<GuardrailResult> {
+    const config = getConfig();
+
     try {
-        if (guardrailsConfig.sensitivityLevel === 0) {
+        if (config.guardrails.sensitivityLevel === 0) {
             return { isBlocked: false };
         }
 
@@ -50,7 +54,7 @@ export async function checkGuardrails(prompt: string, llmResponse: string, log: 
             return levelOne;
         }
     
-        if (guardrailsConfig.sensitivityLevel === 2) {
+        if (config.guardrails.sensitivityLevel === 2) {
             const levelTwo = await checkGuardrailsLevelTwo(prompt, llmResponse, log);
             return levelTwo;
         }
@@ -78,8 +82,4 @@ function chunkTextBySentences(text: string, sentencesPerChunk: number): string[]
     }
 
     return chunks;
-}
-
-export async function guardrailRouting(llmResponse: string) {
-
 }

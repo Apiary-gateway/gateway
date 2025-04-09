@@ -1,7 +1,7 @@
 
 import { AxiosError } from 'axios';
 import { signedPost } from './vectorSearch';
-import { config } from './config/config';
+import { getConfig } from './getConfig';
 import { SchedulerClient, CreateScheduleCommand } from "@aws-sdk/client-scheduler";
 import { v4 as uuidv4 } from "uuid";
 
@@ -14,7 +14,6 @@ import { v4 as uuidv4 } from "uuid";
 // format cached response better - ex. tokens used = 0
 
 const indexName = process.env.OPENSEARCH_INDEX;
-const similarityThreshold = config.cache.semanticCacheThreshold; // pull from config
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
 export async function checkSemanticCache(
@@ -23,6 +22,8 @@ export async function checkSemanticCache(
   provider?: string,
   model?: string
 ) { 
+  const config = getConfig();
+  const similarityThreshold = config.cache.semanticCacheThreshold;
   [ userId, provider, model ] = getFilters(userId, provider, model);
 
   // KNN is K-nearest neighbors, where K is number of nearest neighbors to get  

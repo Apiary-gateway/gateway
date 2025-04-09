@@ -6,8 +6,10 @@ import {
 import { getMessageHistory, saveMessages } from './util/getAndSaveMessages';
 import { routeRequest } from './util/routeRequest';
 import { Logger } from './util/logger';
+import { initConfig } from './util/getConfig';
 
 export const handler = async (event: unknown) => {
+  await initConfig();
   const logger = new Logger();
   logger.setRawRequest(JSON.stringify(event, null, 2));
   try {

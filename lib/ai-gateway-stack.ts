@@ -286,6 +286,13 @@ export class AiGatewayStack extends Stack {
     // guardrailsBucket.grantRead(semanticCacheLambdaRole);
     // SEMANTIC CACHE / GUARDRAILS ITEMS END
 
+    // Bucket for config file
+    const configBucket = new s3.Bucket(this, 'ConfigBucket', {
+      bucketName: 'gateway-config-bucket',
+      removalPolicy: RemovalPolicy.DESTROY,
+      autoDeleteObjects: true,
+    });
+
     // Secrets Manager for API Keys
     const llmApiKeys = new secretsmanager.Secret(this, 'LLMProviderKeys', {
       secretName: 'llm-provider-api-keys',
@@ -429,6 +436,7 @@ export class AiGatewayStack extends Stack {
         // OPENSEARCH_ENDPOINT: vectorCollection.attrCollectionEndpoint,
         OPENSEARCH_INDEX: 'semantic-cache-index',
         OPENSEARCH_GUARDRAILS_INDEX: 'guardrails-index',
+        CONFIG_BUCKET_NAME: configBucket.bucketName,
       },
     });
 
@@ -540,6 +548,7 @@ export class AiGatewayStack extends Stack {
     aiGatewayLogsTable.grantReadData(logsFn);
     messageTable.grantReadWriteData(routerFn);
     logBucket.grantReadWrite(logsFn);
+    configBucket.grantRead(routerFn);
 
     logsFn.addToRolePolicy(
       new iam.PolicyStatement({

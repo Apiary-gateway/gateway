@@ -1,4 +1,4 @@
-import { config } from './config/config';
+import { getConfig } from './getConfig';
 import { RequestPayload } from './schemas/requestSchema';
 import { ParsedRequestData, RequestMetadata } from './types';
 import { requestIsValid } from './validateRequest';
@@ -19,6 +19,7 @@ export function extractRequestMetadata(event: unknown, parsed: RequestPayload): 
       return {};
     }
     const metadata: RequestMetadata = {};
+    const config = getConfig();
 
     try {
       for (const field of config.routing.availableMetadata || []) {

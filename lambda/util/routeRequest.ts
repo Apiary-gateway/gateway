@@ -1,4 +1,3 @@
-import { config } from './config/config'
 import { CallLLMArgs, WeightedProviderModel, ProviderModel, RouteRequestArgs, SupportedLLMs, ModelForProvider, RoutingLog as RoutingLogType } from './types';
 import callLLM from './callLLM';
 import { CompletionResponse } from 'token.js';
@@ -7,6 +6,7 @@ import { FALLBACK_STATUS_CODES } from './constants';
 import { MODELS } from './constants';
 import { RoutingLog } from './routingLog';
 import { retryWithBackoff } from './retryWithBackoff';
+import { getConfig } from './getConfig'
 
 export async function routeRequest({ history, prompt, provider, model, metadata, userId }: Omit <RouteRequestArgs, 'log'>):
 Promise<{       
@@ -20,6 +20,7 @@ Promise<{
 }> {
 
     const log = new RoutingLog();
+    const config = getConfig();
     const conditions = config.routing.conditions || [];
 
     if (provider) {
@@ -48,65 +49,68 @@ Promise<{
 }
 
 async function handleRoutingError(
-  error: any,
-  history: RouteRequestArgs['history'],
-  prompt: RouteRequestArgs['prompt'],
-  log: RoutingLog,
-  condition?: RouteRequestArgs['condition'],
+    error: any,
+    history: RouteRequestArgs['history'],
+    prompt: RouteRequestArgs['prompt'],
+    log: RoutingLog,
+    condition?: RouteRequestArgs['condition'],
 ) {
-  const statusCode = getErrorStatusCode(error);
-  log.routingError(error.message, statusCode);
+    const config = getConfig();
+    const statusCode = getErrorStatusCode(error);
+    log.routingError(error.message, statusCode);
 
-  const fallbackStatuses = config.routing.fallbackOnStatus || FALLBACK_STATUS_CODES;
-  if (statusCode && config.routing.enableFallbacks && fallbackStatuses.includes(statusCode)) {
-    return await routeToFallback({ history, prompt, condition, log });
-  } else {
-    console.error('Error routing request:', error)
-    throw error;
-  }
+    const fallbackStatuses = config.routing.fallbackOnStatus || FALLBACK_STATUS_CODES;
+    if (statusCode && config.routing.enableFallbacks && fallbackStatuses.includes(statusCode)) {
+      return await routeToFallback({ history, prompt, condition, log });
+    } else {
+      console.error('Error routing request:', error)
+      throw error;
+    }
 }
 
 async function routeToDefault({ history, prompt, condition, log, userId }: RouteRequestArgs) {
-  try {
-    const { provider, model } = config.routing.defaultModel;
-    log.routedToDefault(provider, model);
-    return await retryWithBackoff(() => callLLM({ history, prompt, provider, model, log, userId }));
-  } catch (error) {
-    return handleRoutingError(error, history, prompt, log, condition);
-  }
+    try {
+      const config = getConfig();
+      const { provider, model } = config.routing.defaultModel;
+      log.routedToDefault(provider, model);
+      return await retryWithBackoff(() => callLLM({ history, prompt, provider, model, log, userId }));
+    } catch (error) {
+      return handleRoutingError(error, history, prompt, log, condition);
+    }
 }
 
 async function routeToFallback({ history, prompt, condition, log, userId }: RouteRequestArgs) {
-  const { provider, model } = condition?.fallbackModel || config.routing.fallbackModel;
-  log.routedToFallback(provider, model);
-  return await retryWithBackoff(() => callLLM({ history, prompt, provider, model, log, userId}));
+    const config = getConfig();
+    const { provider, model } = condition?.fallbackModel || config.routing.fallbackModel;
+    log.routedToFallback(provider, model);
+    return await retryWithBackoff(() => callLLM({ history, prompt, provider, model, log, userId}));
 }
 
 async function routeToSpecified({ history, prompt, provider, model, log, userId }: CallLLMArgs) {
-  try {
-    log.routedToSpecified(provider, model);
-    return await retryWithBackoff(() => callLLM({ history, prompt, provider, model, log, userId }));
-  } catch (error) {
-    return handleRoutingError(error, history, prompt, log);
-  }
+    try {
+      log.routedToSpecified(provider, model);
+      return await retryWithBackoff(() => callLLM({ history, prompt, provider, model, log, userId }));
+    } catch (error) {
+      return handleRoutingError(error, history, prompt, log);
+    }
 }
 
 function weightedPick(choices: WeightedProviderModel[]): ProviderModel {
-  if (!choices.length) {
-    throw new Error('No choices provided for weighted selection');
-  }
-
-  const totalWeight = choices.reduce((acc, choice) => acc + choice.weight, 0);
-  const randomWeight = Math.random() * totalWeight;
-
-  let currentWeight = 0;
-  for (const choice of choices) {
-    currentWeight += choice.weight;
-    if (randomWeight < currentWeight) {
-      return choice;
+    if (!choices.length) {
+      throw new Error('No choices provided for weighted selection');
     }
-  }
 
-  return choices[choices.length - 1];
+    const totalWeight = choices.reduce((acc, choice) => acc + choice.weight, 0);
+    const randomWeight = Math.random() * totalWeight;
+
+    let currentWeight = 0;
+    for (const choice of choices) {
+      currentWeight += choice.weight;
+      if (randomWeight < currentWeight) {
+        return choice;
+      }
+    }
+
+    return choices[choices.length - 1];
 }
 

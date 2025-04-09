@@ -11,7 +11,7 @@ const collectionEndpoint = process.env.OPENSEARCH_ENDPOINT!;
 
 const service = "aoss"; // for AWS OpenSearch Serverless
 const credentialsProvider = defaultProvider();
-const foo = 3;
+
 export const handler = async (event: CdkCustomResourceEvent, context: Context) => {
   const credentials = await credentialsProvider();
 
