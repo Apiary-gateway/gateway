@@ -1,7 +1,25 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
-import { Readable } from 'stream';
+import { signedPost } from './util/vectorSearch';
 import { z } from 'zod';
+
+const SendSignedPostRequestResponseSchema = z.object({
+  hits: z.object({
+    hits: z.array(
+      z.object({
+        _id: z.string(),
+        _source: z.object({
+          text: z.string(),
+        }),
+      })
+    ),
+  }),
+});
+
+const {
+  OPENSEARCH_ENDPOINT = '',
+  OPENSEARCH_GUARDRAILS_INDEX = 'guardrails-index',
+} = process.env;
 
 const CreateGuardrailSchema = z.object({
   text: z.string(),
@@ -15,17 +33,19 @@ const CreateGuardrailSchema = z.object({
 const s3 = new S3Client({});
 
 async function getGuardrailsFromOpenSearch() {
-  await Promise.resolve(setTimeout(() => {}, 2000));
-  return [
-    {
-      id: String(Math.random()),
-      text: 'Guardrail 1',
+  const data = await signedPost(`/${OPENSEARCH_GUARDRAILS_INDEX}/_search`, {
+    query: {
+      match_all: {},
     },
-    {
-      id: String(Math.random()),
-      text: 'Guardrail 2',
-    },
-  ];
+  });
+  const parsedData = SendSignedPostRequestResponseSchema.parse(data);
+
+  const guardrails = parsedData.hits.hits.map((hit) => ({
+    id: hit._id,
+    text: hit._source.text,
+  }));
+
+  return guardrails;
 }
 
 async function deleteGuardrailFromOpenSearchById(id: string) {
@@ -48,7 +68,6 @@ export const handler = async (
 ): Promise<APIGatewayProxyResult> => {
   const { httpMethod, pathParameters, body } = event;
   const guardrailId = pathParameters?.id;
-  const { GUARDRAILS_BUCKET = '', GUARDRAILS_KEY = '' } = process.env;
 
   console.log({
     httpMethod: httpMethod,
