@@ -103,7 +103,7 @@ export class AiGatewayStack extends Stack {
     // });
 
     // const guardrailsBucket = new s3.Bucket(this, 'GuardrailsBucket', {
-    //   bucketName: 'ai-guardrails-bucket', 
+    //   bucketName: 'ai-guardrails-bucket',
     //   removalPolicy: RemovalPolicy.DESTROY,
     //   autoDeleteObjects: true,
     //   publicReadAccess: false,
@@ -113,7 +113,7 @@ export class AiGatewayStack extends Stack {
     // new s3deploy.BucketDeployment(this, 'DeployGuardrailsJson', {
     //   sources: [s3deploy.Source.asset(path.join(__dirname, '../lambda/json'))],
     //   destinationBucket: guardrailsBucket,
-    //   destinationKeyPrefix: '', 
+    //   destinationKeyPrefix: '',
     // });
 
     // // allow public network access to OpenSearch - tighten this down?
@@ -206,7 +206,7 @@ export class AiGatewayStack extends Stack {
     //     'arn:aws:s3:::ai-guardrails-bucket/guardrailUtterances.json'
     //   ]
     // }));
-    
+
     // new CfnOutput(this, 'OpenSearchEndpoint', {
     //   value: `${vectorCollection.attrCollectionEndpoint}`,
     //   exportName: 'OpenSearchCollectionEndpoint',
@@ -667,6 +667,73 @@ export class AiGatewayStack extends Stack {
       ],
     });
 
+    // ---- NEW GUARDRAILS SECTION ----
+
+    // Create the guardrails S3 bucket
+    const guardrailsBucket = new s3.Bucket(this, 'GuardrailsBucketNew', {
+      removalPolicy: RemovalPolicy.DESTROY,
+      autoDeleteObjects: true,
+      publicReadAccess: false,
+      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
+    });
+
+    // Deploy your guardrailUtterances.json into that bucket
+    new s3deploy.BucketDeployment(this, 'DeployGuardrailsJsonNew', {
+      sources: [s3deploy.Source.asset(path.join(__dirname, '../lambda/json'))],
+      destinationBucket: guardrailsBucket,
+      destinationKeyPrefix: '',
+    });
+
+    // 1) Create the new Guardrails Lambda
+    const guardrailsFn = new lambdaNode.NodejsFunction(
+      this,
+      'GuardrailsFunction',
+      {
+        entry: 'lambda/guardrailsAPIHandler.ts', // This file should handle GET/POST/DELETE logic
+        handler: 'handler',
+        runtime: lambda.Runtime.NODEJS_18_X,
+        timeout: Duration.seconds(30),
+        bundling: {
+          format: lambdaNode.OutputFormat.CJS,
+          externalModules: ['aws-sdk'],
+        },
+        environment: {
+          GUARDRAILS_BUCKET: guardrailsBucket.bucketName,
+          GUARDRAILS_KEY: 'guardrailUtterances.json',
+        },
+      }
+    );
+
+    // Grant read permissions to the guardrails Lambda
+    guardrailsBucket.grantRead(guardrailsFn);
+
+    // 2) (Optional) Grant other necessary permissions if needed, e.g.:
+    // guardrailsTable.grantReadWriteData(guardrailsFn);
+
+    // 3) Create the /guardrails resource
+    const guardrailsResource = api.root.addResource('guardrails');
+
+    // GET /guardrails
+    guardrailsResource.addMethod(
+      'GET',
+      new apigateway.LambdaIntegration(guardrailsFn)
+    );
+
+    // POST /guardrails
+    guardrailsResource.addMethod(
+      'POST',
+      new apigateway.LambdaIntegration(guardrailsFn)
+    );
+
+    // DELETE /guardrails/{id}
+    const singleGuardrailResource = guardrailsResource.addResource('{id}');
+    singleGuardrailResource.addMethod(
+      'DELETE',
+      new apigateway.LambdaIntegration(guardrailsFn)
+    );
+
+    // ---- END NEW GUARDRAILS SECTION ----
+
     // S3 Bucket for Frontend
     const frontendBucket = new s3.Bucket(this, 'FrontendBucket', {
       websiteIndexDocument: 'index.html',
@@ -691,12 +758,12 @@ export class AiGatewayStack extends Stack {
     );
 
     // Define the logs and config endpoints
-    const logsEndpoint = `${api.url}logs`;
+    const apiEndpoint = `${api.url}`;
     const configEndpoint = `${api.url}config`;
 
     // Inject the endpoints via config.js
     const configJsContent = `
-      window.LOGS_ENDPOINT = ${JSON.stringify(logsEndpoint)};
+      window.API_ENDPOINT = ${JSON.stringify(apiEndpoint)};
       window.CONFIG_ENDPOINT = ${JSON.stringify(configEndpoint)};
     `;
 
@@ -724,6 +791,5 @@ export class AiGatewayStack extends Stack {
     athenaTable.applyRemovalPolicy(RemovalPolicy.DESTROY);
     // createVectorIndex.applyRemovalPolicy(RemovalPolicy.DESTROY);
     // createGuardrailsIndex.applyRemovalPolicy(RemovalPolicy.DESTROY);
-
   }
 }

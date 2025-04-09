@@ -25,13 +25,14 @@ function LogsTable({
       return 'NA';
     }
     return new Date(timestamp).toLocaleString(undefined, {
-      hour12: false, // Use 24-hour format
       year: 'numeric',
-      month: 'numeric',
-      day: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
       hour: '2-digit',
       minute: '2-digit',
       second: '2-digit',
+      hour12: false,
+      timeZoneName: 'short',
     });
   };
 
