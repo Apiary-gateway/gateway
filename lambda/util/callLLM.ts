@@ -40,38 +40,38 @@ export default async function callLLM({ history, prompt, provider, model, log, u
     Promise<CallLLMResponse> {
     try {
         const config = getConfig();
-      const simpleCacheResponse = config.cache.enableSimple 
-        ? await checkSimpleCache(prompt, userId, provider, model) 
-        : null;
-      if (simpleCacheResponse) {
-        log.cacheHit('simple');
-        return {
-          text: JSON.stringify(simpleCacheResponse),
-          usage: CACHE_USAGE_OBJECT,
-          provider,
-          model,
-          log: log.getLog(),
-          simpleCacheHit: true,
-        }
-      }; 
+        const simpleCacheResponse = config.cache.enableSimple 
+            ? await checkSimpleCache(prompt, userId, provider, model) 
+            : null;
+        if (simpleCacheResponse) {
+            log.cacheHit('simple');
+            return {
+            text: JSON.stringify(simpleCacheResponse),
+            usage: CACHE_USAGE_OBJECT,
+            provider,
+            model,
+            log: log.getLog(),
+            simpleCacheHit: true,
+            }
+        }; 
       
-      const requestEmbedding = config.cache.enableSemantic 
-        ? await getEmbedding(prompt)
-        : null;
-      const semanticCacheResponse = config.cache.enableSemantic 
-        ? await checkSemanticCache(requestEmbedding!, userId, provider, model)
-        : null;
-      if (semanticCacheResponse) {
-        log.cacheHit('semantic');
-        return {
-          text: semanticCacheResponse,
-          usage: CACHE_USAGE_OBJECT,
-          provider,
-          model,
-          log: log.getLog(),
-          semanticCacheHit: true
-        };
-      }
+        const requestEmbedding = config.cache.enableSemantic 
+            ? await getEmbedding(prompt)
+            : null;
+        const semanticCacheResponse = config.cache.enableSemantic 
+            ? await checkSemanticCache(requestEmbedding!, userId, provider, model)
+            : null;
+        if (semanticCacheResponse) {
+            log.cacheHit('semantic');
+            return {
+            text: semanticCacheResponse,
+            usage: CACHE_USAGE_OBJECT,
+            provider,
+            model,
+            log: log.getLog(),
+            semanticCacheHit: true
+            };
+        }
       
         await loadApiKeys();
         if (cachedApiKeys) {
