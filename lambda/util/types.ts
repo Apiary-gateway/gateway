@@ -56,6 +56,12 @@ export type CacheConfig = {
     semanticCacheThreshold: number;
 }
 
+export type Config = {
+    routing: RoutingConfig;
+    guardrails: GuardrailsConfig;
+    cache: CacheConfig;
+}
+
 export interface RoutingLog {
     timestamp: string;
     events: RoutingEvent[];
@@ -111,7 +117,6 @@ export type ParsedRequestData = {
     userId?: string;
 }
 
-
 export type GuardrailResult = {
     isBlocked: boolean;
     match?: string;
@@ -121,3 +126,18 @@ export type GuardrailS3Params = {
     bucket: string;
     key: string;
 }
+
+interface ModelCost {
+    input: number;
+    output: number;
+    inputSmallPrompt?: number;
+    inputLargePrompt?: number;
+    outputSmallPrompt?: number;
+    outputLargePrompt?: number;
+  }
+  
+  export interface ModelCostType {
+    [provider: string]: {
+      [model: string]: ModelCost;
+    }
+  }
