@@ -151,7 +151,7 @@ function App() {
       )}
       {isGuardrailsModalOpen && (
         <Modal onClose={() => setIsGuardrailsModalOpen(false)}>
-          <Guardrails onClose={() => setIsGuardrailsModalOpen(false)} />
+          <Guardrails />
         </Modal>
       )}
     </div>

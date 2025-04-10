@@ -5,11 +5,7 @@ import {
   deleteGuardrail,
 } from '../services/guardrails.service';
 
-interface GuardrailsProps {
-  onClose: () => void;
-}
-
-const Guardrails = ({ onClose }: GuardrailsProps) => {
+const Guardrails = () => {
   const [guardrails, setGuardrails] = useState<{ id: string; text: string }[]>(
     []
   );
@@ -43,7 +39,7 @@ const Guardrails = ({ onClose }: GuardrailsProps) => {
     if (notification) {
       const timer = setTimeout(() => {
         setNotification(null);
-      }, 5000);
+      }, 10000);
       return () => clearTimeout(timer);
     }
   }, [notification]);
@@ -88,7 +84,8 @@ const Guardrails = ({ onClose }: GuardrailsProps) => {
       setGuardrails(newGuardrails);
       setNotification({
         type: 'success',
-        message: 'Guardrail deleted successfully',
+        message:
+          'Request to delete guardrail processed successfully. The guardrail will be deleted in a couple of minutes',
       });
     } catch (err) {
       setNotification({

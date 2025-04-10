@@ -1,9 +1,6 @@
 import axios from 'axios';
 import { API_BASE_URL } from './logs.service';
-import {
-  GetGuardrailsResponseSchema,
-  SingleGuardrailSchema,
-} from '../types/guardrails.types';
+import { GetGuardrailsResponseSchema } from '../types/guardrails.types';
 
 export const getGuardrails = async () => {
   try {

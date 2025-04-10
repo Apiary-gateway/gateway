@@ -1,6 +1,7 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
 import { signedPost } from './util/vectorSearch';
+import { signedDelete } from './deleteDocument';
 import { z } from 'zod';
 
 const SendSignedPostRequestResponseSchema = z.object({
@@ -50,19 +51,16 @@ async function getGuardrailsFromOpenSearch() {
 }
 
 async function deleteGuardrailFromOpenSearchById(id: string) {
-  // Bulk requests must be NDJSON.
-  // Each command is on its own line (plus a trailing newline).
-  // const ndjsonBody = `{"delete":{"_id":"${id}"}}\n`;
-
-  // // Send to /guardrails-index/_bulk (POST) using signedPost
-  // const data = await signedPost(
-  //   `/${OPENSEARCH_GUARDRAILS_INDEX}/_bulk`,
-  //   ndjsonBody
-  // );
-
-  // console.log('Bulk delete response:', data);
-  // return data;
-  throw new Error('Not implemented');
+  try {
+    const deleteResponse = await signedDelete(
+      `/${OPENSEARCH_GUARDRAILS_INDEX}/_doc/${id}`
+    );
+    if (deleteResponse.result !== 'deleted') {
+      throw new Error('Failed to delete guardrail from OpenSearch');
+    }
+  } catch (error) {
+    throw new Error('Failed to delete guardrail from OpenSearch');
+  }
 }
 
 async function addGuardrailToOpenSearch(guardrail: string) {
