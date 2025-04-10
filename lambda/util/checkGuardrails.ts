@@ -32,7 +32,6 @@ export async function checkGuardrailsLevelTwo(prompt: string, llmResponse: strin
             const matches = await searchKNN(guardrailsIndex, embedding, 1);
             const topMatch = matches[0];
             const similarity = topMatch._score ?? 0;
-            log.routedToGuardrails('two', topMatch._score ?? 0, topMatch._source.text)
             if (similarity > config.guardrails.threshold) {
                 log.guardrailHit('two', topMatch._source.text)
                 return { isBlocked: true, match: topMatch._source.text };
@@ -63,6 +62,7 @@ export async function checkGuardrails(prompt: string, llmResponse: string, log: 
         }
     
         if (config.guardrails.sensitivityLevel === 2) {
+
             const levelTwo = await checkGuardrailsLevelTwo(prompt, llmResponse, log);
             return levelTwo;
         }
