@@ -30,7 +30,7 @@ export const getConfig = async () => {
     try {
         const url = await getPresignedUrlGet();
         const res = await axios.get(url);
-        return res.data;
+        return typeof res.data === 'string' ? JSON.parse(res.data) : res.data;
     } catch (error) {
         console.error('Error fetching config:', error);
         alert('Error fetching config');
@@ -40,7 +40,7 @@ export const getConfig = async () => {
 export const submitConfig = async (configJson: string) => {
     try {
         const url = await getPresignedUrlPut();
-        await axios.put(url, JSON.stringify(JSON.parse(configJson)), {
+        await axios.put(url, configJson, {
             headers: {
                 'Content-Type': 'application/json',
             }

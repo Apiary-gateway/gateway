@@ -1,17 +1,26 @@
 import { z } from 'zod';
 
+const operatorEnum = z.enum([
+    'equals',
+    'notEquals',
+    'in',
+    'contains',
+    'lessThan',
+    'greaterThan',
+]);
+
 export const providerModelSchema = z.object({
     provider: z.string(),
     model: z.string(),
   });
 
 export const weightedProviderModelSchema = providerModelSchema.extend({
-    weight: z.number(),
+    weight: z.number().min(0).max(1),
 });
 
 const routingConditionMatch = z.object({
     field: z.string(),
-    operator: z.string(),
+    operator: operatorEnum,
     value: z.string(),
 });
 
@@ -34,7 +43,10 @@ export const routingSchema = z.object({
 
 export const guardrailsSchema = z.object({
   enabled: z.boolean(),
-  threshold: z.number(),
+  threshold: z
+    .number()
+    .min(0, 'Must be between 0 and 1')
+    .max(1, 'Must be between 0 and 1'),
   restrictedWords: z.array(z.string()),
   sensitivityLevel: z.union([z.literal(0), z.literal(1), z.literal(2)]),
   resendOnViolation: z.boolean(),
@@ -44,7 +56,10 @@ export const guardrailsSchema = z.object({
 export const cacheSchema = z.object({
   enableSimple: z.boolean(),
   enableSemantic: z.boolean(),
-  semanticCacheThreshold: z.number(),
+  semanticCacheThreshold: z
+    .number()
+    .min(0, 'Must be between 0 and 1')
+    .max(1, 'Must be between 0 and 1'),
 });
 
 export const configSchema = z.object({
