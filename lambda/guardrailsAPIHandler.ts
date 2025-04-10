@@ -38,6 +38,7 @@ async function getGuardrailsFromOpenSearch() {
       match_all: {},
     },
   });
+  console.log('data ingetGuardrailsFromOpenSearch', data.hits.hits);
   const parsedData = SendSignedPostRequestResponseSchema.parse(data);
 
   const guardrails = parsedData.hits.hits.map((hit) => ({
@@ -58,11 +59,9 @@ async function addGuardrailToOpenSearch(guardrail: string) {
     text: guardrail,
   });
 
-  console.log('data inaddGuardrailToOpenSearch', data);
-  return {
-    id: String(Math.random()),
-    text: guardrail,
-  };
+  if (data.result !== 'created') {
+    throw new Error('Failed to add guardrail to OpenSearch');
+  }
 }
 
 // helper to convert stream to string
@@ -110,13 +109,13 @@ export const handler = async (
           const { text: guardrailText } = CreateGuardrailSchema.parse(
             body ? JSON.parse(body) : {}
           );
-          const savedGuardrail = await addGuardrailToOpenSearch(guardrailText);
+          await addGuardrailToOpenSearch(guardrailText);
           return {
             statusCode: 201,
             headers: {
               'Access-Control-Allow-Origin': '*',
             },
-            body: JSON.stringify(savedGuardrail),
+            body: '',
           };
         } catch (error) {
           console.error('Error in POST request:', error);

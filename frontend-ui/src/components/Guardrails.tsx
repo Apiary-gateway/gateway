@@ -43,7 +43,7 @@ const Guardrails = ({ onClose }: GuardrailsProps) => {
     if (notification) {
       const timer = setTimeout(() => {
         setNotification(null);
-      }, 3000);
+      }, 5000);
       return () => clearTimeout(timer);
     }
   }, [notification]);
@@ -57,12 +57,14 @@ const Guardrails = ({ onClose }: GuardrailsProps) => {
 
     setIsProcessing(true);
     try {
-      const newGuardrailFromAPI = await addGuardrail(newGuardrail.trim());
-      setGuardrails([...guardrails, newGuardrailFromAPI]);
+      await addGuardrail(newGuardrail.trim());
+      const newGuardrails = await getGuardrails();
+      setGuardrails(newGuardrails);
       setNewGuardrail('');
       setNotification({
         type: 'success',
-        message: 'Guardrail added successfully',
+        message:
+          'Request to add guardrail processed successfully. The guardrail will show and start working in a couple of minutes',
       });
     } catch (err) {
       setNotification({
