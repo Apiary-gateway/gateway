@@ -5,6 +5,7 @@ import { LogEntry } from './types/logs.types';
 import Modal from './components/Modal';
 import LogDetail from './components/LogDetails';
 import Guardrails from './components/Guardrails';
+import Config from './components/Config';
 
 function App() {
   const [showAthenaLogs, setShowAthenaLogs] = useState<boolean>(false);
@@ -24,6 +25,8 @@ function App() {
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
   const [selectedLog, setSelectedLog] = useState<LogEntry | null>(null);
   const [isGuardrailsModalOpen, setIsGuardrailsModalOpen] =
+    useState<boolean>(false);
+  const [isConfigModalOpen, setIsConfigModalOpen] =
     useState<boolean>(false);
 
   const fetchLogsFromAthena = async () => {
@@ -128,6 +131,12 @@ function App() {
           >
             Manage Guardrails
           </button>
+          <button
+            className="config-button"
+            onClick={() => setIsConfigModalOpen(true)}
+          >
+            Manage Gateway Configuration
+          </button>
         </div>
       </header>
       <LogsTable
@@ -152,6 +161,11 @@ function App() {
       {isGuardrailsModalOpen && (
         <Modal onClose={() => setIsGuardrailsModalOpen(false)}>
           <Guardrails onClose={() => setIsGuardrailsModalOpen(false)} />
+        </Modal>
+      )}
+      {isConfigModalOpen && (
+        <Modal onClose={() => setIsConfigModalOpen(false)}>
+          <Config onClose={() => setIsConfigModalOpen(false)} />
         </Modal>
       )}
     </div>

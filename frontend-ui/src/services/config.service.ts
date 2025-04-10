@@ -1,12 +1,52 @@
 import axios from 'axios';
-import { LogsResponse, LogsResponseSchema } from '../types/logs.types';
+import { API_BASE_URL } from './logs.service';
+import { presignedUrlSchema, PresignedUrl } from '../types/config.types';
 
-const getConfigEndpoint = (): string => {
-  if (typeof window !== 'undefined' && 'CONFIG_ENDPOINT' in window) {
-    return (window as any).CONFIG_ENDPOINT;
+export const getPresignedUrlGet = async (): Promise<string> => {
+  try {
+    const response = await axios.get<PresignedUrl>(`${API_BASE_URL + 'config?method=get'}`);
+    const parsed = presignedUrlSchema.parse(response.data)
+    return parsed.url;
+  } catch (error) {
+    console.error('Error fetching presignedUrl:', error);
+    alert('Error fetching presignedUrl');
+    return '';
   }
-  alert('LOGS_ENDPOINT not configured');
-  throw new Error();
 };
 
-const CONFIG_BASE_URL = getConfigEndpoint();
+export const getPresignedUrlPut = async (): Promise<string> => {
+    try {
+      const response = await axios.get<typeof presignedUrlSchema>(`${API_BASE_URL + 'config?method=put'}`);
+      const parsed = presignedUrlSchema.parse(response.data)
+      return parsed.url;
+    } catch (error) {
+      console.error('Error fetching presignedUrl:', error);
+      alert('Error fetching presignedUrl');
+      return '';
+    }
+};
+
+export const getConfig = async () => {
+    try {
+        const url = await getPresignedUrlGet();
+        const res = await axios.get(url);
+        return res.data;
+    } catch (error) {
+        console.error('Error fetching config:', error);
+        alert('Error fetching config');
+    }
+}
+
+export const submitConfig = async (configJson: string) => {
+    try {
+        const url = await getPresignedUrlPut();
+        await axios.put(url, JSON.stringify(JSON.parse(configJson)), {
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        })
+    } catch (error) {
+        console.error('Error fetching config:', error);
+        alert('Error fetching config');
+    }
+}

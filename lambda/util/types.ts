@@ -24,9 +24,15 @@ export type WeightedProviderModel = ProviderModel & { weight: number };
 
 export type RequestMetadata = Record<string, any>;
 
+type RoutingConditionMatch = {
+    field: string,
+    operator: string,
+    value: string,
+}
+
 export type RoutingCondition = {
     name: string;
-    query: (meta: RequestMetadata) => boolean;
+    match: RoutingConditionMatch;
     loadBalance: WeightedProviderModel[];
     fallbackModel?: ProviderModel;
 }

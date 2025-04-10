@@ -291,6 +291,14 @@ export class AiGatewayStack extends Stack {
       bucketName: 'gateway-config-bucket',
       removalPolicy: RemovalPolicy.DESTROY,
       autoDeleteObjects: true,
+      cors: [
+        {
+          allowedOrigins: ['*'], // or set to your frontend URL
+          allowedMethods: [s3.HttpMethods.GET, s3.HttpMethods.PUT],
+          allowedHeaders: ['*'],
+          exposedHeaders: ['ETag'],
+        },
+      ],
     });
 
     new s3deploy.BucketDeployment(this, 'DeployDefaultConfig', {
@@ -759,12 +767,10 @@ export class AiGatewayStack extends Stack {
 
     // Define the logs and config endpoints
     const apiEndpoint = `${api.url}`;
-    const configEndpoint = `${api.url}config`;
 
     // Inject the endpoints via config.js
     const configJsContent = `
       window.API_ENDPOINT = ${JSON.stringify(apiEndpoint)};
-      window.CONFIG_ENDPOINT = ${JSON.stringify(configEndpoint)};
     `;
 
     // Deploy frontend from /frontend-ui/dist

@@ -5,13 +5,19 @@ export const providerModelSchema = z.object({
     model: z.string(),
   });
 
-  export const weightedProviderModelSchema = providerModelSchema.extend({
+export const weightedProviderModelSchema = providerModelSchema.extend({
     weight: z.number(),
-  });
+});
+
+const routingConditionMatch = z.object({
+    field: z.string(),
+    operator: z.string(),
+    value: z.string(),
+});
 
 export const routingConditionSchema = z.object({
   name: z.string(),
-  query: z.any(), 
+  match: routingConditionMatch, 
   loadBalance: z.array(weightedProviderModelSchema),
   fallbackModel: z.optional(providerModelSchema),
 });
@@ -47,4 +53,9 @@ export const configSchema = z.object({
   cache: cacheSchema,
 });
 
+export const presignedUrlSchema = z.object({
+    url: z.string(),
+})
+
 export type Config = z.infer<typeof configSchema>;
+export type PresignedUrl = z.infer<typeof presignedUrlSchema>;

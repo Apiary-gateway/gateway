@@ -16,8 +16,7 @@ async function streamToString(stream: Readable): Promise<string> {
 }
 
 export async function initConfig(): Promise<void> {
-
-    if (cachedConfig) return;
+    // if (cachedConfig) return; // commenting this out for now so we can test
 
     try {
         const key = `configs/config.json`;
@@ -39,6 +38,7 @@ export async function initConfig(): Promise<void> {
 }
 
 function isValidConfig(config: unknown): config is Config {
+    console.log(config)
     if (!config || typeof config !== 'object') return false;
 
     const requiredKeys = ['routing', 'guardrails', 'cache'];
@@ -49,5 +49,6 @@ export function getConfig(): Config {
     if (!cachedConfig) {
         throw new Error('Config not initialized. You must call initConfig() first.');
     }
+    
     return cachedConfig;
 }
