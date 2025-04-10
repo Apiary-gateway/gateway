@@ -19,7 +19,6 @@ import {
   Duration,
   RemovalPolicy,
   SecretValue,
-  Resource,
   CustomResource,
 } from 'aws-cdk-lib';
 // ✅ Add these imports for scheduling
@@ -27,9 +26,6 @@ import { Rule, Schedule } from 'aws-cdk-lib/aws-events';
 import { LambdaFunction } from 'aws-cdk-lib/aws-events-targets';
 
 import * as cr from 'aws-cdk-lib/custom-resources';
-import { timeStamp } from 'console';
-import { ResourceType } from 'aws-cdk-lib/aws-config';
-import { Permission } from '@aws-sdk/client-s3';
 import * as path from 'path';
 
 export class AiGatewayStack extends Stack {
@@ -63,7 +59,7 @@ export class AiGatewayStack extends Stack {
       removalPolicy: RemovalPolicy.DESTROY,
     });
 
-    // DynamoDB table
+    // DynamoDB table for logs
     const aiGatewayLogsTable = new dynamodb.Table(this, 'AiGatewayLogsTable', {
       tableName: 'ai-gateway-logs-table',
       partitionKey: { name: 'PK', type: dynamodb.AttributeType.STRING },
@@ -82,208 +78,238 @@ export class AiGatewayStack extends Stack {
         sortKey: { name: 'cacheKey', type: dynamodb.AttributeType.STRING },
         billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
         removalPolicy: RemovalPolicy.DESTROY,
-        timeToLiveAttribute: 'ttl', // Automatically remove expired items
+        timeToLiveAttribute: 'ttl',
       }
     );
 
     // SEMANTIC CACHE / GUARDRAILS ITEMS START
     // Security policy for OpenSearch Serverless collection for semantic cache
-    // const encryptionPolicy = new opensearch.CfnSecurityPolicy(this, 'OpenSearchEncryptionPolicy', {
-    //   name: 'semantic-cache-encryption-policy',
-    //   type: 'encryption',
-    //   policy: JSON.stringify({
-    //     Rules: [
-    //       {
-    //         ResourceType: 'collection',
-    //         Resource: ['collection/semantic-cache']
-    //       }
-    //     ],
-    //     AWSOwnedKey: true
-    //   })
-    // });
+    const encryptionPolicy = new opensearch.CfnSecurityPolicy(
+      this,
+      'OpenSearchEncryptionPolicy',
+      {
+        name: 'semantic-cache-encryption-policy',
+        type: 'encryption',
+        policy: JSON.stringify({
+          Rules: [
+            {
+              ResourceType: 'collection',
+              Resource: ['collection/semantic-cache'],
+            },
+          ],
+          AWSOwnedKey: true,
+        }),
+      }
+    );
 
-    // const guardrailsBucket = new s3.Bucket(this, 'GuardrailsBucket', {
-    //   bucketName: 'ai-guardrails-bucket',
-    //   removalPolicy: RemovalPolicy.DESTROY,
-    //   autoDeleteObjects: true,
-    //   publicReadAccess: false,
-    //   blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
-    // });
+    const guardrailsBucket = new s3.Bucket(this, 'GuardrailsBucket', {
+      bucketName: 'ai-guardrails-bucket',
+      removalPolicy: RemovalPolicy.DESTROY,
+      autoDeleteObjects: true,
+      publicReadAccess: false,
+      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
+    });
 
-    // new s3deploy.BucketDeployment(this, 'DeployGuardrailsJson', {
-    //   sources: [s3deploy.Source.asset(path.join(__dirname, '../lambda/json'))],
-    //   destinationBucket: guardrailsBucket,
-    //   destinationKeyPrefix: '',
-    // });
+    new s3deploy.BucketDeployment(this, 'DeployGuardrailsJson', {
+      sources: [s3deploy.Source.asset(path.join(__dirname, '../lambda/json'))],
+      destinationBucket: guardrailsBucket,
+      destinationKeyPrefix: '',
+    });
 
-    // // allow public network access to OpenSearch - tighten this down?
-    // const accessPolicy = new opensearch.CfnSecurityPolicy(this, 'PublicNetworkPolicy', {
-    //   name: 'public-network-policy',
-    //   type: 'network',
-    //   policy: JSON.stringify([
-    //     {
-    //       Rules: [
-    //         {
-    //           ResourceType: 'collection',
-    //           Resource: ['collection/semantic-cache'],
-    //         },
-    //       ],
-    //       AllowFromPublic: true,
-    //     },
-    //   ]),
-    // });
+    // allow public network access to OpenSearch - tighten this down?
+    const accessPolicy = new opensearch.CfnSecurityPolicy(
+      this,
+      'PublicNetworkPolicy',
+      {
+        name: 'public-network-policy',
+        type: 'network',
+        policy: JSON.stringify([
+          {
+            Rules: [
+              {
+                ResourceType: 'collection',
+                Resource: ['collection/semantic-cache'],
+              },
+            ],
+            AllowFromPublic: true,
+          },
+        ]),
+      }
+    );
 
-    // // OpenSearch Serverless collection for semantic cache
-    // const vectorCollection = new opensearch.CfnCollection(this, 'SemanticCacheCollection', {
-    //   name: 'semantic-cache',
-    //   type: 'VECTORSEARCH',
-    //   // "dev-test mode" - disabling replicas should cut cost in half
-    //   standbyReplicas: 'DISABLED',
-    // });
+    // OpenSearch Serverless collection for semantic cache
+    const vectorCollection = new opensearch.CfnCollection(
+      this,
+      'SemanticCacheCollection',
+      {
+        name: 'semantic-cache',
+        type: 'VECTORSEARCH',
+        standbyReplicas: 'DISABLED',
+      }
+    );
 
-    // vectorCollection.node.addDependency(encryptionPolicy);
-    // vectorCollection.node.addDependency(accessPolicy);
+    vectorCollection.node.addDependency(encryptionPolicy);
+    vectorCollection.node.addDependency(accessPolicy);
 
-    // // IAM role for Lambda to invoke Bedrock models and access OpenSearch API
-    // const semanticCacheLambdaRole = new iam.Role(this, 'SemanticCacheLambdaRole', {
-    //   assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
-    //   managedPolicies: [
-    //     iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AWSLambdaBasicExecutionRole')
-    //   ]
-    // });
+    // IAM role for Lambda to invoke Bedrock models and access OpenSearch API
+    const semanticCacheLambdaRole = new iam.Role(
+      this,
+      'SemanticCacheLambdaRole',
+      {
+        assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
+        managedPolicies: [
+          iam.ManagedPolicy.fromAwsManagedPolicyName(
+            'service-role/AWSLambdaBasicExecutionRole'
+          ),
+        ],
+      }
+    );
 
-    // new opensearch.CfnAccessPolicy(this, 'OpenSearchAccessPolicy', {
-    //   name: 'semantic-cache-access-policy',
-    //   type: 'data',
-    //   policy: JSON.stringify([
-    //     {
-    //       Rules: [
-    //         {
-    //           ResourceType: "collection",
-    //           Resource: [`collection/${vectorCollection.name}`],
-    //           Permission: ["aoss:*"],
-    //         },
-    //         {
-    //           ResourceType: "index",
-    //           Resource: ["index/*/*"],
-    //           Permission: ["aoss:*"]
-    //         }
-    //       ],
-    //       Principal: [
-    //         semanticCacheLambdaRole.roleArn,
-    //         `arn:aws:iam::${Aws.ACCOUNT_ID}:root`,
-    //       ]
-    //     }
-    //   ])
-    // });
+    new opensearch.CfnAccessPolicy(this, 'OpenSearchAccessPolicy', {
+      name: 'semantic-cache-access-policy',
+      type: 'data',
+      policy: JSON.stringify([
+        {
+          Rules: [
+            {
+              ResourceType: 'collection',
+              Resource: [`collection/${vectorCollection.name}`],
+              Permission: ['aoss:*'],
+            },
+            {
+              ResourceType: 'index',
+              Resource: ['index/*/*'],
+              Permission: ['aoss:*'],
+            },
+          ],
+          Principal: [
+            semanticCacheLambdaRole.roleArn,
+            `arn:aws:iam::${Aws.ACCOUNT_ID}:root`,
+          ],
+        },
+      ]),
+    });
 
-    // semanticCacheLambdaRole.addToPolicy(new iam.PolicyStatement({
-    //   actions: ['bedrock:InvokeModel'],
-    //   // TODO: limit this to a specific Bedrock model(s)?
-    //   resources: ['*']
-    // }));
+    semanticCacheLambdaRole.addToPolicy(
+      new iam.PolicyStatement({
+        actions: [
+          'bedrock:GetFoundationModel',
+          'bedrock:InvokeModel',
+          'bedrock:ListFoundationModels',
+        ],
+        resources: ['*'],
+      })
+    );
 
-    // semanticCacheLambdaRole.addToPolicy(new iam.PolicyStatement({
-    //   actions: [
-    //     'aoss:ReadDocument',
-    //     'aoss:WriteDocument',
-    //     'aoss:DescribeCollectionItems',
-    //     'aoss:DescribeCollection',
-    //     'aoss:ListCollections',
-    //     'aoss:DescribeIndex',
-    //     'aoss:ListIndexes',
-    //     'aoss:APIAccessAll',
-    //     's3:GetObject',
-    //     's3:ListBucket',
-    //   ],
-    //   // TODO: limit this more to specific resources?
-    //   resources: [
-    //     `arn:aws:aoss:${this.region}:${this.account}:*`,
-    //     `arn:aws:aoss:${this.region}:${this.account}:collection/semantic-cache`,
-    //     `arn:aws:aoss:${this.region}:${this.account}:index/semantic-cache/*`,
-    //     `arn:aws:aoss:${this.region}:${this.account}:index/guardrails-index/*`, // added for guardrails
-    //     'arn:aws:s3:::ai-guardrails-bucket',
-    //     'arn:aws:s3:::ai-guardrails-bucket/guardrailUtterances.json'
-    //   ]
-    // }));
+    semanticCacheLambdaRole.addToPolicy(
+      new iam.PolicyStatement({
+        actions: [
+          'aoss:ReadDocument',
+          'aoss:WriteDocument',
+          'aoss:DescribeCollectionItems',
+          'aoss:DescribeCollection',
+          'aoss:ListCollections',
+          'aoss:DescribeIndex',
+          'aoss:ListIndexes',
+          'aoss:APIAccessAll',
+          's3:GetObject',
+          's3:ListBucket',
+        ],
+        resources: [
+          `arn:aws:aoss:${this.region}:${this.account}:*`,
+          `arn:aws:aoss:${this.region}:${this.account}:collection/semantic-cache`,
+          `arn:aws:aoss:${this.region}:${this.account}:index/semantic-cache/*`,
+          `arn:aws:aoss:${this.region}:${this.account}:index/guardrails-index/*`,
+          'arn:aws:s3:::ai-guardrails-bucket',
+          'arn:aws:s3:::ai-guardrails-bucket/guardrailUtterances.json',
+        ],
+      })
+    );
 
-    // new CfnOutput(this, 'OpenSearchEndpoint', {
-    //   value: `${vectorCollection.attrCollectionEndpoint}`,
-    //   exportName: 'OpenSearchCollectionEndpoint',
-    // });
+    new CfnOutput(this, 'OpenSearchEndpoint', {
+      value: `${vectorCollection.attrCollectionEndpoint}`,
+      exportName: 'OpenSearchCollectionEndpoint',
+    });
 
-    // new CfnOutput(this, 'OpenSearchCollectionAttrId', {
-    //   value: `${vectorCollection.attrId}`,
-    //   exportName: 'OpenSearchCollectionAttrId',
-    // });
+    new CfnOutput(this, 'OpenSearchCollectionAttrId', {
+      value: `${vectorCollection.attrId}`,
+      exportName: 'OpenSearchCollectionAttrId',
+    });
 
-    // const createVectorIndexFn = new lambdaNode.NodejsFunction(this, 'CreateVectorIndexFunction', {
-    //   entry: 'lambda/vectorIndex.ts',
-    //   handler: 'handler',
-    //   runtime: lambda.Runtime.NODEJS_18_X,
-    //   timeout: Duration.minutes(5),
-    //   role: semanticCacheLambdaRole,
-    //   bundling: {
-    //     format: lambdaNode.OutputFormat.CJS,
-    //     externalModules: ['aws-sdk'],
-    //   },
-    //   environment: {
-    //     OPENSEARCH_ENDPOINT: vectorCollection.attrCollectionEndpoint,
-    //     OPENSEARCH_INDEX: 'semantic-cache-index',
-    //     GUARDRAIL_UTTERANCES_S3_URI: 's3://ai-guardrails-bucket/guardrailUtterances.json'
-    //   },
-    // });
+    const createVectorIndexFn = new lambdaNode.NodejsFunction(
+      this,
+      'CreateVectorIndexFunction',
+      {
+        entry: 'lambda/vectorIndex.ts',
+        handler: 'handler',
+        runtime: lambda.Runtime.NODEJS_18_X,
+        timeout: Duration.minutes(5),
+        role: semanticCacheLambdaRole,
+        bundling: {
+          format: lambdaNode.OutputFormat.CJS,
+          externalModules: ['aws-sdk'],
+        },
+        environment: {
+          OPENSEARCH_ENDPOINT: vectorCollection.attrCollectionEndpoint,
+          OPENSEARCH_INDEX: 'semantic-cache-index',
+          GUARDRAIL_UTTERANCES_S3_URI:
+            's3://ai-guardrails-bucket/guardrailUtterances.json',
+        },
+      }
+    );
 
-    // const provider = new cr.Provider(this, 'CreateVectorIndexProvider', {
-    //   onEventHandler: createVectorIndexFn,
-    //   logGroup: new logs.LogGroup(this, 'CRProviderLogs', {
-    //     retention: logs.RetentionDays.FIVE_DAYS
-    //   }),
-    // });
+    const provider = new cr.Provider(this, 'CreateVectorIndexProvider', {
+      onEventHandler: createVectorIndexFn,
+      logGroup: new logs.LogGroup(this, 'CRProviderLogs', {
+        retention: logs.RetentionDays.FIVE_DAYS,
+      }),
+    });
 
-    // const createVectorIndex = new CustomResource(this, 'CreateVectorIndex', {
-    //   serviceToken: provider.serviceToken,
-    //   serviceTimeout: Duration.seconds(900), // 15 min
-    //   // should invoke Lambda again if either of these properties change
-    //   properties: {
-    //     collectionName: vectorCollection.name,
-    //     indexName: 'semantic-cache-index',
-    //     dimension: 1024,
-    //   },
-    // });
+    const createVectorIndex = new CustomResource(this, 'CreateVectorIndex', {
+      serviceToken: provider.serviceToken,
+      serviceTimeout: Duration.seconds(900),
+      properties: {
+        collectionName: vectorCollection.name,
+        indexName: 'semantic-cache-index',
+        dimension: 1024,
+      },
+    });
 
-    // // custom resource for guardrails index
-    // const createGuardrailsIndex = new CustomResource(this, 'CreateGuardrailsIndex', {
-    //   serviceToken: provider.serviceToken,
-    //   serviceTimeout: Duration.seconds(900), // 15 min
-    //   // should invoke Lambda again if either of these properties change
-    //   properties: {
-    //     collectionName: vectorCollection.name,
-    //     indexName: 'guardrails-index',
-    //     dimension: 1024,
-    //     mappings: JSON.stringify({
-    //       properties: {
-    //         embedding: {
-    //           type: "knn_vector",
-    //           dimension: 1024,
-    //           method: {
-    //             engine: "nmslib", // non-metric space library (approx. nn search library)
-    //             space_type: "cosinesimil",
-    //             name: "hnsw", // heirarchical navigable small world (graph-based ann algorithm)
-    //             parameters: {}
-    //           }
-    //         },
-    //         text: { type: "text" }, // TODO include category here?
-    //       }
-    //     }),
-    //     guardrailsBucket: guardrailsBucket.bucketName,
-    //     guardrailsKey: 'guardrailUtterances.json'
-    //   },
-    // });
+    // custom resource for guardrails index
+    const createGuardrailsIndex = new CustomResource(
+      this,
+      'CreateGuardrailsIndex',
+      {
+        serviceToken: provider.serviceToken,
+        serviceTimeout: Duration.seconds(900),
+        properties: {
+          collectionName: vectorCollection.name,
+          indexName: 'guardrails-index',
+          dimension: 1024,
+          mappings: JSON.stringify({
+            properties: {
+              embedding: {
+                type: 'knn_vector',
+                dimension: 1024,
+                method: {
+                  engine: 'nmslib',
+                  space_type: 'cosinesimil',
+                  name: 'hnsw',
+                  parameters: {},
+                },
+              },
+              text: { type: 'text' },
+            },
+          }),
+          guardrailsBucket: guardrailsBucket.bucketName,
+          guardrailsKey: 'guardrailUtterances.json',
+        },
+      }
+    );
 
-    // createVectorIndex.node.addDependency(vectorCollection);
-    // createGuardrailsIndex.node.addDependency(vectorCollection);
-    // guardrailsBucket.grantRead(semanticCacheLambdaRole);
+    createVectorIndex.node.addDependency(vectorCollection);
+    createGuardrailsIndex.node.addDependency(vectorCollection);
+    guardrailsBucket.grantRead(semanticCacheLambdaRole);
     // SEMANTIC CACHE / GUARDRAILS ITEMS END
 
     // s3 Bucket for config file
@@ -447,7 +473,6 @@ export class AiGatewayStack extends Stack {
         SYSTEM_PROMPT: 'You are a helpful assistant. You answer in cockney.',
         LOG_BUCKET_NAME: logBucket.bucketName,
         CACHE_TABLE_NAME: aiGatewayCacheTable.tableName,
-        // OPENSEARCH_ENDPOINT: vectorCollection.attrCollectionEndpoint,
         OPENSEARCH_INDEX: 'semantic-cache-index',
         OPENSEARCH_GUARDRAILS_INDEX: 'guardrails-index',
         CONFIG_BUCKET_NAME: configBucket.bucketName,
@@ -493,7 +518,7 @@ export class AiGatewayStack extends Stack {
       this,
       'MigrateLogsFunction',
       {
-        entry: 'lambda/migrateLogs.ts', // your newly created file
+        entry: 'lambda/migrateLogs.ts',
         handler: 'handler',
         runtime: lambda.Runtime.NODEJS_18_X,
         timeout: Duration.minutes(5),
@@ -629,20 +654,10 @@ export class AiGatewayStack extends Stack {
     });
 
     const logsResource = api.root.addResource('logs');
+    const logsIntegration = new apigateway.LambdaIntegration(logsFn);
+    logsResource.addMethod('GET', logsIntegration, { apiKeyRequired: false });
 
-    // Lambda integration for GET with CORS headers
-    const logsIntegration = new apigateway.LambdaIntegration(logsFn); // Proxy: true by default
-    logsResource.addMethod('GET', logsIntegration, {
-      apiKeyRequired: false,
-    });
-
-    const presignedUrlConfigResource = api.root.addResource('config');
-    const configIntegration = new apigateway.LambdaIntegration(presignedUrlLambda); 
-    presignedUrlConfigResource.addMethod('GET', configIntegration, {
-      apiKeyRequired: false,
-    });
-
-    // OPTIONS method for CORS preflight
+    // OPTIONS method for CORS preflight for /logs
     const optionsIntegration = new apigateway.MockIntegration({
       integrationResponses: [
         {
@@ -657,11 +672,8 @@ export class AiGatewayStack extends Stack {
         },
       ],
       passthroughBehavior: apigateway.PassthroughBehavior.WHEN_NO_MATCH,
-      requestTemplates: {
-        'application/json': '{"statusCode": 200}',
-      },
+      requestTemplates: { 'application/json': '{"statusCode": 200}' },
     });
-
     logsResource.addMethod('OPTIONS', optionsIntegration, {
       methodResponses: [
         {
@@ -677,21 +689,7 @@ export class AiGatewayStack extends Stack {
 
     // ---- NEW GUARDRAILS SECTION ----
 
-    // Create the guardrails S3 bucket
-    const guardrailsBucket = new s3.Bucket(this, 'GuardrailsBucketNew', {
-      removalPolicy: RemovalPolicy.DESTROY,
-      autoDeleteObjects: true,
-      publicReadAccess: false,
-      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
-    });
-
-    // Deploy your guardrailUtterances.json into that bucket
-    new s3deploy.BucketDeployment(this, 'DeployGuardrailsJsonNew', {
-      sources: [s3deploy.Source.asset(path.join(__dirname, '../lambda/json'))],
-      destinationBucket: guardrailsBucket,
-      destinationKeyPrefix: '',
-    });
-
+    // Deploy guardrailUtterances.json into the guardrails S3 bucket (already done above)
     // 1) Create the new Guardrails Lambda
     const guardrailsFn = new lambdaNode.NodejsFunction(
       this,
@@ -705,9 +703,10 @@ export class AiGatewayStack extends Stack {
           format: lambdaNode.OutputFormat.CJS,
           externalModules: ['aws-sdk'],
         },
+        role: semanticCacheLambdaRole,
         environment: {
-          GUARDRAILS_BUCKET: guardrailsBucket.bucketName,
-          GUARDRAILS_KEY: 'guardrailUtterances.json',
+          OPENSEARCH_ENDPOINT: vectorCollection.attrCollectionEndpoint,
+          OPENSEARCH_GUARDRAILS_INDEX: 'guardrails-index',
         },
       }
     );
@@ -715,31 +714,45 @@ export class AiGatewayStack extends Stack {
     // Grant read permissions to the guardrails Lambda
     guardrailsBucket.grantRead(guardrailsFn);
 
-    // 2) (Optional) Grant other necessary permissions if needed, e.g.:
-    // guardrailsTable.grantReadWriteData(guardrailsFn);
-
-    // 3) Create the /guardrails resource
+    // 3) Create the /guardrails resource and its child path /guardrails/{id}
     const guardrailsResource = api.root.addResource('guardrails');
-
-    // GET /guardrails
     guardrailsResource.addMethod(
       'GET',
       new apigateway.LambdaIntegration(guardrailsFn)
     );
-
-    // POST /guardrails
     guardrailsResource.addMethod(
       'POST',
       new apigateway.LambdaIntegration(guardrailsFn)
     );
 
-    // DELETE /guardrails/{id}
     const singleGuardrailResource = guardrailsResource.addResource('{id}');
     singleGuardrailResource.addMethod(
       'DELETE',
       new apigateway.LambdaIntegration(guardrailsFn)
     );
 
+    // Add CORS preflight to /guardrails and /guardrails/{id}
+    guardrailsResource.addCorsPreflight({
+      allowOrigins: apigateway.Cors.ALL_ORIGINS,
+      allowHeaders: [
+        'Content-Type',
+        'X-Amz-Date',
+        'Authorization',
+        'X-Api-Key',
+      ],
+      allowMethods: ['OPTIONS', 'GET', 'POST'],
+    });
+
+    singleGuardrailResource.addCorsPreflight({
+      allowOrigins: apigateway.Cors.ALL_ORIGINS,
+      allowHeaders: [
+        'Content-Type',
+        'X-Amz-Date',
+        'Authorization',
+        'X-Api-Key',
+      ],
+      allowMethods: ['OPTIONS', 'DELETE'],
+    });
     // ---- END NEW GUARDRAILS SECTION ----
 
     // S3 Bucket for Frontend
@@ -777,25 +790,25 @@ export class AiGatewayStack extends Stack {
     new s3deploy.BucketDeployment(this, 'DeployFrontend', {
       sources: [
         s3deploy.Source.asset(
-          path.join(__dirname, '..', 'frontend-ui', 'dist') // <-- adapt path if needed
+          path.join(__dirname, '..', 'frontend-ui', 'dist')
         ),
         s3deploy.Source.data('config.js', configJsContent),
       ],
       destinationBucket: frontendBucket,
     });
 
-    // NEW: Output the deployed website URL of the S3 frontend bucket
+    // Output the deployed website URL for the S3 frontend bucket
     new CfnOutput(this, 'FrontendBucketUrl', {
       value: frontendBucket.bucketWebsiteUrl,
       description: 'URL for the deployed frontend S3 bucket website',
     });
 
-    // encryptionPolicy.applyRemovalPolicy(RemovalPolicy.DESTROY);
-    // accessPolicy.applyRemovalPolicy(RemovalPolicy.DESTROY);
-    // vectorCollection.applyRemovalPolicy(RemovalPolicy.DESTROY);
+    encryptionPolicy.applyRemovalPolicy(RemovalPolicy.DESTROY);
+    accessPolicy.applyRemovalPolicy(RemovalPolicy.DESTROY);
+    vectorCollection.applyRemovalPolicy(RemovalPolicy.DESTROY);
     athenaDatabase.applyRemovalPolicy(RemovalPolicy.DESTROY);
     athenaTable.applyRemovalPolicy(RemovalPolicy.DESTROY);
-    // createVectorIndex.applyRemovalPolicy(RemovalPolicy.DESTROY);
-    // createGuardrailsIndex.applyRemovalPolicy(RemovalPolicy.DESTROY);
+    createVectorIndex.applyRemovalPolicy(RemovalPolicy.DESTROY);
+    createGuardrailsIndex.applyRemovalPolicy(RemovalPolicy.DESTROY);
   }
 }

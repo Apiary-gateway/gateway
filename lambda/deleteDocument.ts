@@ -11,7 +11,7 @@ const credentialsProvider = defaultProvider();
 
 export const handler = async (event: { documentId: string }) => {
   console.log('received event: ', JSON.stringify(event));
-  
+
   const { documentId } = event;
   console.log(`Deleting document with ID: ${documentId}`);
 
@@ -27,7 +27,7 @@ export const handler = async (event: { documentId: string }) => {
   }
 };
 
-async function signedDelete(path: string) {
+export async function signedDelete(path: string) {
   try {
     const credentials = await credentialsProvider();
 
@@ -44,7 +44,7 @@ async function signedDelete(path: string) {
       hostname: new URL(collectionEndpoint).hostname,
       path,
       headers: {
-        'host': new URL(collectionEndpoint).hostname,
+        host: new URL(collectionEndpoint).hostname,
       },
     });
 
@@ -59,7 +59,12 @@ async function signedDelete(path: string) {
     return response.data;
   } catch (err) {
     if (err instanceof AxiosError) {
-      console.error('Response status code: ', err.response?.status, 'Axios error data: ', err.response?.data);
+      console.error(
+        'Response status code: ',
+        err.response?.status,
+        'Axios error data: ',
+        err.response?.data
+      );
     } else {
       console.error('An error occurred: ', err);
     }

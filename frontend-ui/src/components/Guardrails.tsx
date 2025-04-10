@@ -1,18 +1,17 @@
 import { useState, useEffect } from 'react';
 import {
   getGuardrails,
-  submitGuardrails,
+  addGuardrail,
+  deleteGuardrail,
 } from '../services/guardrails.service';
 
-interface GuardrailsProps {
-  onClose: () => void;
-}
-
-const Guardrails = ({ onClose }: GuardrailsProps) => {
-  const [guardrails, setGuardrails] = useState<string[]>([]);
+const Guardrails = () => {
+  const [guardrails, setGuardrails] = useState<{ id: string; text: string }[]>(
+    []
+  );
   const [newGuardrail, setNewGuardrail] = useState('');
   const [isLoading, setIsLoading] = useState(true);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
   const [notification, setNotification] = useState<{
     type: 'success' | 'error';
     message: string;
@@ -40,39 +39,61 @@ const Guardrails = ({ onClose }: GuardrailsProps) => {
     if (notification) {
       const timer = setTimeout(() => {
         setNotification(null);
-      }, 3000);
+      }, 10000);
       return () => clearTimeout(timer);
     }
   }, [notification]);
 
-  const handleAddGuardrail = () => {
-    if (newGuardrail.trim()) {
-      setGuardrails([...guardrails, newGuardrail.trim()]);
-      setNewGuardrail('');
+  const handleAddGuardrail = async () => {
+    if (!newGuardrail.trim()) return;
+
+    if (!window.confirm('Are you sure you want to add this guardrail?')) {
+      return;
     }
-  };
 
-  const handleDeleteGuardrail = (index: number) => {
-    setGuardrails(guardrails.filter((_, i) => i !== index));
-  };
-
-  const handleSubmit = async () => {
-    setIsSubmitting(true);
-    setNotification(null);
+    setIsProcessing(true);
     try {
-      const updatedGuardrails = await submitGuardrails(guardrails);
-      setGuardrails(updatedGuardrails);
+      await addGuardrail(newGuardrail.trim());
+      const newGuardrails = await getGuardrails();
+      setGuardrails(newGuardrails);
+      setNewGuardrail('');
       setNotification({
         type: 'success',
-        message: 'Guardrails updated successfully',
+        message:
+          'Request to add guardrail processed successfully. The guardrail will show and start working in a couple of minutes',
       });
     } catch (err) {
       setNotification({
         type: 'error',
-        message: 'Failed to update guardrails',
+        message: 'Failed to add guardrail',
       });
     } finally {
-      setIsSubmitting(false);
+      setIsProcessing(false);
+    }
+  };
+
+  const handleDeleteGuardrail = async (id: string) => {
+    if (!window.confirm('Are you sure you want to delete this guardrail?')) {
+      return;
+    }
+
+    setIsProcessing(true);
+    try {
+      await deleteGuardrail(id);
+      const newGuardrails = await getGuardrails();
+      setGuardrails(newGuardrails);
+      setNotification({
+        type: 'success',
+        message:
+          'Request to delete guardrail processed successfully. The guardrail will be deleted in a couple of minutes',
+      });
+    } catch (err) {
+      setNotification({
+        type: 'error',
+        message: 'Failed to delete guardrail',
+      });
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -84,29 +105,19 @@ const Guardrails = ({ onClose }: GuardrailsProps) => {
           {notification.message}
         </div>
       )}
-      {(isLoading || isSubmitting) && (
+      {(isLoading || isProcessing) && (
         <div className="modal-loading-overlay">
           <div className="spinner"></div>
         </div>
       )}
       <div className="guardrails-list">
-        {guardrails.map((guardrail, index) => (
-          <div key={index} className="guardrail-item">
-            <input
-              type="text"
-              value={guardrail}
-              onChange={(e) => {
-                const newGuardrails = [...guardrails];
-                newGuardrails[index] = e.target.value;
-                setGuardrails(newGuardrails);
-              }}
-              className="guardrail-input"
-              disabled={isLoading || isSubmitting}
-            />
+        {guardrails.map((guardrail) => (
+          <div key={guardrail.id} className="guardrail-item">
+            <span className="guardrail-text">{guardrail.text}</span>
             <button
-              onClick={() => handleDeleteGuardrail(index)}
+              onClick={() => handleDeleteGuardrail(guardrail.id)}
               className="delete-button"
-              disabled={isLoading || isSubmitting}
+              disabled={isLoading || isProcessing}
               title="Delete guardrail"
             >
               <svg
@@ -137,30 +148,14 @@ const Guardrails = ({ onClose }: GuardrailsProps) => {
           onChange={(e) => setNewGuardrail(e.target.value)}
           placeholder="Add new guardrail"
           className="guardrail-input"
-          disabled={isLoading || isSubmitting}
+          disabled={isLoading || isProcessing}
         />
         <button
           onClick={handleAddGuardrail}
           className="add-button"
-          disabled={isLoading || isSubmitting}
+          disabled={isLoading || isProcessing}
         >
           Add
-        </button>
-      </div>
-      <div className="guardrails-actions">
-        <button
-          onClick={onClose}
-          className="cancel-button"
-          disabled={isLoading || isSubmitting}
-        >
-          Cancel
-        </button>
-        <button
-          onClick={handleSubmit}
-          disabled={isLoading || isSubmitting}
-          className="submit-button"
-        >
-          Save Changes
         </button>
       </div>
     </div>
