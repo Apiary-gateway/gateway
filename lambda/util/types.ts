@@ -66,6 +66,7 @@ export type Config = {
     routing: RoutingConfig;
     guardrails: GuardrailsConfig;
     cache: CacheConfig;
+    systemPrompt: string;
 }
 
 export interface RoutingLog {
@@ -101,7 +102,7 @@ export type CallLLMResponse = {
     provider: SupportedLLMs, 
     model: ModelForProvider<SupportedLLMs>, 
     log: RoutingLog,
-    cost: number,
+    cost?: number,
     simpleCacheHit?: boolean,
     semanticCacheHit?: boolean
 }

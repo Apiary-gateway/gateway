@@ -66,6 +66,7 @@ export const configSchema = z.object({
   routing: routingSchema,
   guardrails: guardrailsSchema,
   cache: cacheSchema,
+  systemPrompt: z.string(),
 });
 
 export const presignedUrlSchema = z.object({

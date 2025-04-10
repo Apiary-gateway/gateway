@@ -471,7 +471,6 @@ export class AiGatewayStack extends Stack {
         LOG_TABLE_NAME: aiGatewayLogsTable.tableName,
         SECRET_NAME: llmApiKeys.secretName,
         MESSAGE_TABLE_NAME: messageTable.tableName,
-        SYSTEM_PROMPT: 'You are a helpful assistant. You answer in cockney.',
         LOG_BUCKET_NAME: logBucket.bucketName,
         CACHE_TABLE_NAME: aiGatewayCacheTable.tableName,
         OPENSEARCH_ENDPOINT: vectorCollection.attrCollectionEndpoint,

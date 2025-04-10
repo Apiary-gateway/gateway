@@ -83,7 +83,7 @@ export default async function callLLM({ history, prompt, provider, model, log, u
         }
 
         const tokenjs = new TokenJS();
-        const systemPrompt = process.env.SYSTEM_PROMPT || SYSTEM_PROMPT;
+        const systemPrompt = config.systemPrompt;
         const response = await tokenjs.chat.completions.create({
             provider: provider,
             model: model,
@@ -112,8 +112,7 @@ export default async function callLLM({ history, prompt, provider, model, log, u
                     log, 
                     userId, 
                     llmResponse: responseText, 
-                    match: guardrailHit.match, 
-                    embeddedPrompt: requestEmbedding! });
+                    match: guardrailHit.match });
 
                 responseText = retryResponse.text;
                 if (tokensUsed && retryResponse.usage) {
@@ -137,7 +136,6 @@ export default async function callLLM({ history, prompt, provider, model, log, u
             tokensUsed.completion_tokens
           );
         }
-        console.log('cost: ', cost);
 
         return {
             text: responseText,
@@ -153,8 +151,8 @@ export default async function callLLM({ history, prompt, provider, model, log, u
     }
 }
 
-export async function callLLMWithGuardrail({ history, prompt, provider, model, log, userId, llmResponse, match, embeddedPrompt }: 
-    CallLLMArgs & { llmResponse: string, match: string, embeddedPrompt: number[] }):
+export async function callLLMWithGuardrail({ history, prompt, provider, model, log, userId, llmResponse, match }: 
+    CallLLMArgs & { llmResponse: string, match: string }):
     Promise<{ text: string, usage: CompletionResponse["usage"]}> {
     try {
         const config = getConfig();
@@ -165,7 +163,7 @@ export async function callLLMWithGuardrail({ history, prompt, provider, model, l
             provider: provider,
             model: model,
             messages: [
-                { role: 'system', content: process.env.SYSTEM_PROMPT || SYSTEM_PROMPT },
+                { role: 'system', content: config.systemPrompt },
                 ...history,
                 {
                     role: 'user',
@@ -194,16 +192,6 @@ export async function callLLMWithGuardrail({ history, prompt, provider, model, l
                 usage: response.usage,
             } 
         }
-        // don't await - no need to wait here
-        addToSimpleCache(prompt, responseText, userId, provider, model);
-        addToSemanticCache(
-          embeddedPrompt,
-          prompt,
-          responseText,
-          userId,
-          provider,
-          model
-        );
 
         return {
             text: responseText,

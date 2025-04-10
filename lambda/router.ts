@@ -30,7 +30,7 @@ export const handler = async (event: unknown) => {
         metadata,
       });
 
-      await saveMessages(prompt, response.text, threadID);
+      saveMessages(prompt, response.text, threadID);
 
       let successReason;
 
@@ -42,7 +42,7 @@ export const handler = async (event: unknown) => {
         successReason = 'LLM_RESPONSE';
       }
 
-      await logger.logSuccessData(
+      logger.logSuccessData(
         response.model,
         response.provider,
         response.log,

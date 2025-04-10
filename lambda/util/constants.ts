@@ -1,6 +1,6 @@
 import { SupportedLLMs } from "./types";
 
-export const SYSTEM_PROMPT = `You are a helpful assistant. You answer in cockney.`;
+export const SYSTEM_PROMPT = `You are a helpful assistant. You are jovial.`;
 
 export const MODELS = {
     openai: ['gpt-3.5-turbo', 'gpt-4', 'gpt-4o-mini'] as const,

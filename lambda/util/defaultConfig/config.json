@@ -20,5 +20,6 @@
     "sensitivityLevel": 2,
     "resendOnViolation": false, 
     "blockedContentResponse": "Content redacted from default"
-  }
+  },
+  "systemPrompt": "You are a helpful assistant. You are jovial."
 }
