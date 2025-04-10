@@ -22,11 +22,11 @@ export async function embedAndIndexGuardrails({ bucket, key }: GuardrailS3Params
   const utterances: string[] = JSON.parse(json);
 
   for (const utterance of utterances) {
-    const embedding = await retryWithBackoff(() => getEmbedding(utterance));
-    await retryWithBackoff(() => indexVector("guardrails-index", {
+    const embedding = await getEmbedding(utterance);
+    await indexVector("guardrails-index", {
       text: utterance,
       embedding,
-    }));
+    });
   }
 
   console.log(`✅ Indexed ${utterances.length} guardrail utterances`);

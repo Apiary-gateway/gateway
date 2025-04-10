@@ -103,7 +103,7 @@ export class AiGatewayStack extends Stack {
     );
 
     const guardrailsBucket = new s3.Bucket(this, 'GuardrailsBucket', {
-      bucketName: 'ai-guardrails-bucket',
+      bucketName: `ai-guardrails-bucket-${this.account}-${this.region}`,
       removalPolicy: RemovalPolicy.DESTROY,
       autoDeleteObjects: true,
       publicReadAccess: false,
@@ -314,7 +314,7 @@ export class AiGatewayStack extends Stack {
 
     // s3 Bucket for config file
     const configBucket = new s3.Bucket(this, 'ConfigBucket', {
-      bucketName: 'gateway-config-bucket',
+      bucketName: `ai-config-bucket-${this.account}-${this.region}`,
       removalPolicy: RemovalPolicy.DESTROY,
       autoDeleteObjects: true,
       cors: [
