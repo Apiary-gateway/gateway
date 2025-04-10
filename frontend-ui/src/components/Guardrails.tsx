@@ -84,7 +84,8 @@ const Guardrails = ({ onClose }: GuardrailsProps) => {
     setIsProcessing(true);
     try {
       await deleteGuardrail(id);
-      setGuardrails(guardrails.filter((guardrail) => guardrail.id !== id));
+      const newGuardrails = await getGuardrails();
+      setGuardrails(newGuardrails);
       setNotification({
         type: 'success',
         message: 'Guardrail deleted successfully',

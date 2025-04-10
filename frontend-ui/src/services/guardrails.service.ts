@@ -18,9 +18,11 @@ export const getGuardrails = async () => {
 
 export const addGuardrail = async (guardrailText: string) => {
   try {
-    await axios.post(`${API_BASE_URL + 'guardrails'}`, {
+    const response = await axios.post(`${API_BASE_URL + 'guardrails'}`, {
       text: guardrailText,
     });
+    console.log('response in addGuardrail', response);
+    return response.data;
   } catch (error) {
     console.error('Error adding guardrail:', error);
     throw error;

@@ -19,7 +19,6 @@ import {
   Duration,
   RemovalPolicy,
   SecretValue,
-  Resource,
   CustomResource,
 } from 'aws-cdk-lib';
 // ✅ Add these imports for scheduling
@@ -27,9 +26,6 @@ import { Rule, Schedule } from 'aws-cdk-lib/aws-events';
 import { LambdaFunction } from 'aws-cdk-lib/aws-events-targets';
 
 import * as cr from 'aws-cdk-lib/custom-resources';
-import { timeStamp } from 'console';
-import { ResourceType } from 'aws-cdk-lib/aws-config';
-import { Permission } from '@aws-sdk/client-s3';
 import * as path from 'path';
 
 export class AiGatewayStack extends Stack {
@@ -63,7 +59,7 @@ export class AiGatewayStack extends Stack {
       removalPolicy: RemovalPolicy.DESTROY,
     });
 
-    // DynamoDB table
+    // DynamoDB table for logs
     const aiGatewayLogsTable = new dynamodb.Table(this, 'AiGatewayLogsTable', {
       tableName: 'ai-gateway-logs-table',
       partitionKey: { name: 'PK', type: dynamodb.AttributeType.STRING },
@@ -82,7 +78,7 @@ export class AiGatewayStack extends Stack {
         sortKey: { name: 'cacheKey', type: dynamodb.AttributeType.STRING },
         billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
         removalPolicy: RemovalPolicy.DESTROY,
-        timeToLiveAttribute: 'ttl', // Automatically remove expired items
+        timeToLiveAttribute: 'ttl',
       }
     );
 
@@ -148,7 +144,6 @@ export class AiGatewayStack extends Stack {
       {
         name: 'semantic-cache',
         type: 'VECTORSEARCH',
-        // "dev-test mode" - disabling replicas should cut cost in half
         standbyReplicas: 'DISABLED',
       }
     );
@@ -220,12 +215,11 @@ export class AiGatewayStack extends Stack {
           's3:GetObject',
           's3:ListBucket',
         ],
-        // TODO: limit this more to specific resources?
         resources: [
           `arn:aws:aoss:${this.region}:${this.account}:*`,
           `arn:aws:aoss:${this.region}:${this.account}:collection/semantic-cache`,
           `arn:aws:aoss:${this.region}:${this.account}:index/semantic-cache/*`,
-          `arn:aws:aoss:${this.region}:${this.account}:index/guardrails-index/*`, // added for guardrails
+          `arn:aws:aoss:${this.region}:${this.account}:index/guardrails-index/*`,
           'arn:aws:s3:::ai-guardrails-bucket',
           'arn:aws:s3:::ai-guardrails-bucket/guardrailUtterances.json',
         ],
@@ -273,8 +267,7 @@ export class AiGatewayStack extends Stack {
 
     const createVectorIndex = new CustomResource(this, 'CreateVectorIndex', {
       serviceToken: provider.serviceToken,
-      serviceTimeout: Duration.seconds(900), // 15 min
-      // should invoke Lambda again if either of these properties change
+      serviceTimeout: Duration.seconds(900),
       properties: {
         collectionName: vectorCollection.name,
         indexName: 'semantic-cache-index',
@@ -288,8 +281,7 @@ export class AiGatewayStack extends Stack {
       'CreateGuardrailsIndex',
       {
         serviceToken: provider.serviceToken,
-        serviceTimeout: Duration.seconds(900), // 15 min
-        // should invoke Lambda again if either of these properties change
+        serviceTimeout: Duration.seconds(900),
         properties: {
           collectionName: vectorCollection.name,
           indexName: 'guardrails-index',
@@ -300,13 +292,13 @@ export class AiGatewayStack extends Stack {
                 type: 'knn_vector',
                 dimension: 1024,
                 method: {
-                  engine: 'nmslib', // non-metric space library (approx. nn search library)
+                  engine: 'nmslib',
                   space_type: 'cosinesimil',
-                  name: 'hnsw', // heirarchical navigable small world (graph-based ann algorithm)
+                  name: 'hnsw',
                   parameters: {},
                 },
               },
-              text: { type: 'text' }, // TODO include category here?
+              text: { type: 'text' },
             },
           }),
           guardrailsBucket: guardrailsBucket.bucketName,
@@ -460,7 +452,6 @@ export class AiGatewayStack extends Stack {
         SYSTEM_PROMPT: 'You are a helpful assistant. You answer in cockney.',
         LOG_BUCKET_NAME: logBucket.bucketName,
         CACHE_TABLE_NAME: aiGatewayCacheTable.tableName,
-        // OPENSEARCH_ENDPOINT: vectorCollection.attrCollectionEndpoint,
         OPENSEARCH_INDEX: 'semantic-cache-index',
         OPENSEARCH_GUARDRAILS_INDEX: 'guardrails-index',
       },
@@ -495,7 +486,7 @@ export class AiGatewayStack extends Stack {
       this,
       'MigrateLogsFunction',
       {
-        entry: 'lambda/migrateLogs.ts', // your newly created file
+        entry: 'lambda/migrateLogs.ts',
         handler: 'handler',
         runtime: lambda.Runtime.NODEJS_18_X,
         timeout: Duration.minutes(5),
@@ -629,14 +620,10 @@ export class AiGatewayStack extends Stack {
     });
 
     const logsResource = api.root.addResource('logs');
+    const logsIntegration = new apigateway.LambdaIntegration(logsFn);
+    logsResource.addMethod('GET', logsIntegration, { apiKeyRequired: false });
 
-    // Lambda integration for GET with CORS headers
-    const logsIntegration = new apigateway.LambdaIntegration(logsFn); // Proxy: true by default
-    logsResource.addMethod('GET', logsIntegration, {
-      apiKeyRequired: false,
-    });
-
-    // OPTIONS method for CORS preflight
+    // OPTIONS method for CORS preflight for /logs
     const optionsIntegration = new apigateway.MockIntegration({
       integrationResponses: [
         {
@@ -651,11 +638,8 @@ export class AiGatewayStack extends Stack {
         },
       ],
       passthroughBehavior: apigateway.PassthroughBehavior.WHEN_NO_MATCH,
-      requestTemplates: {
-        'application/json': '{"statusCode": 200}',
-      },
+      requestTemplates: { 'application/json': '{"statusCode": 200}' },
     });
-
     logsResource.addMethod('OPTIONS', optionsIntegration, {
       methodResponses: [
         {
@@ -671,21 +655,7 @@ export class AiGatewayStack extends Stack {
 
     // ---- NEW GUARDRAILS SECTION ----
 
-    // Create the guardrails S3 bucket
-    // const guardrailsBucket = new s3.Bucket(this, 'GuardrailsBucketNew', {
-    //   removalPolicy: RemovalPolicy.DESTROY,
-    //   autoDeleteObjects: true,
-    //   publicReadAccess: false,
-    //   blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
-    // });
-
-    // Deploy your guardrailUtterances.json into that bucket
-    new s3deploy.BucketDeployment(this, 'DeployGuardrailsJsonNew', {
-      sources: [s3deploy.Source.asset(path.join(__dirname, '../lambda/json'))],
-      destinationBucket: guardrailsBucket,
-      destinationKeyPrefix: '',
-    });
-
+    // Deploy guardrailUtterances.json into the guardrails S3 bucket (already done above)
     // 1) Create the new Guardrails Lambda
     const guardrailsFn = new lambdaNode.NodejsFunction(
       this,
@@ -701,7 +671,6 @@ export class AiGatewayStack extends Stack {
         },
         role: semanticCacheLambdaRole,
         environment: {
-          // Add the two new environment variables:
           OPENSEARCH_ENDPOINT: vectorCollection.attrCollectionEndpoint,
           OPENSEARCH_GUARDRAILS_INDEX: 'guardrails-index',
         },
@@ -711,31 +680,45 @@ export class AiGatewayStack extends Stack {
     // Grant read permissions to the guardrails Lambda
     guardrailsBucket.grantRead(guardrailsFn);
 
-    // 2) (Optional) Grant other necessary permissions if needed, e.g.:
-    // guardrailsTable.grantReadWriteData(guardrailsFn);
-
-    // 3) Create the /guardrails resource
+    // 3) Create the /guardrails resource and its child path /guardrails/{id}
     const guardrailsResource = api.root.addResource('guardrails');
-
-    // GET /guardrails
     guardrailsResource.addMethod(
       'GET',
       new apigateway.LambdaIntegration(guardrailsFn)
     );
-
-    // POST /guardrails
     guardrailsResource.addMethod(
       'POST',
       new apigateway.LambdaIntegration(guardrailsFn)
     );
 
-    // DELETE /guardrails/{id}
     const singleGuardrailResource = guardrailsResource.addResource('{id}');
     singleGuardrailResource.addMethod(
       'DELETE',
       new apigateway.LambdaIntegration(guardrailsFn)
     );
 
+    // Add CORS preflight to /guardrails and /guardrails/{id}
+    guardrailsResource.addCorsPreflight({
+      allowOrigins: apigateway.Cors.ALL_ORIGINS,
+      allowHeaders: [
+        'Content-Type',
+        'X-Amz-Date',
+        'Authorization',
+        'X-Api-Key',
+      ],
+      allowMethods: ['OPTIONS', 'GET', 'POST'],
+    });
+
+    singleGuardrailResource.addCorsPreflight({
+      allowOrigins: apigateway.Cors.ALL_ORIGINS,
+      allowHeaders: [
+        'Content-Type',
+        'X-Amz-Date',
+        'Authorization',
+        'X-Api-Key',
+      ],
+      allowMethods: ['OPTIONS', 'DELETE'],
+    });
     // ---- END NEW GUARDRAILS SECTION ----
 
     // S3 Bucket for Frontend
@@ -773,14 +756,14 @@ export class AiGatewayStack extends Stack {
     new s3deploy.BucketDeployment(this, 'DeployFrontend', {
       sources: [
         s3deploy.Source.asset(
-          path.join(__dirname, '..', 'frontend-ui', 'dist') // <-- adapt path if needed
+          path.join(__dirname, '..', 'frontend-ui', 'dist')
         ),
         s3deploy.Source.data('config.js', configJsContent),
       ],
       destinationBucket: frontendBucket,
     });
 
-    // NEW: Output the deployed website URL of the S3 frontend bucket
+    // Output the deployed website URL for the S3 frontend bucket
     new CfnOutput(this, 'FrontendBucketUrl', {
       value: frontendBucket.bucketWebsiteUrl,
       description: 'URL for the deployed frontend S3 bucket website',

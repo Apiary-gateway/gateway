@@ -50,8 +50,19 @@ async function getGuardrailsFromOpenSearch() {
 }
 
 async function deleteGuardrailFromOpenSearchById(id: string) {
-  await Promise.resolve(setTimeout(() => {}, 2000));
-  return id;
+  // Bulk requests must be NDJSON.
+  // Each command is on its own line (plus a trailing newline).
+  // const ndjsonBody = `{"delete":{"_id":"${id}"}}\n`;
+
+  // // Send to /guardrails-index/_bulk (POST) using signedPost
+  // const data = await signedPost(
+  //   `/${OPENSEARCH_GUARDRAILS_INDEX}/_bulk`,
+  //   ndjsonBody
+  // );
+
+  // console.log('Bulk delete response:', data);
+  // return data;
+  throw new Error('Not implemented');
 }
 
 async function addGuardrailToOpenSearch(guardrail: string) {
