@@ -82,6 +82,7 @@ export type RoutingEvent =
     | { type: 'routed_to_specified'; provider: string; model: string }
     | { type: 'routing_error'; error: string; statusCode?: number }
     | { type: 'cache_hit'; cacheType: 'simple' | 'semantic' }
+    | { type: 'routed_to_guardrails'; level: 'one' | 'two'; topmatch?: number, match?: string }
     | { type: 'guardrail_hit'; level: 'one' | 'two'; match: string }
     | { type: 'guardrail_retry'; };
 
@@ -100,6 +101,7 @@ export type CallLLMResponse = {
     provider: SupportedLLMs, 
     model: ModelForProvider<SupportedLLMs>, 
     log: RoutingLog,
+    cost: number,
     simpleCacheHit?: boolean,
     semanticCacheHit?: boolean
 }

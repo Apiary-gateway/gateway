@@ -46,6 +46,10 @@ export class RoutingLog {
         this.add({ type: 'cache_hit', cacheType });
     }
 
+    routedToGuardrails(level: 'one' | 'two', topmatch?: number, match?: string) {
+        this.add({ type: 'routed_to_guardrails', level, topmatch, match });
+    }
+
     guardrailHit(level: 'one' | 'two', match: string) {
         this.add({ type: 'guardrail_hit', level, match });
     }

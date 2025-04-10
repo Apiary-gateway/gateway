@@ -46,12 +46,13 @@ export default async function callLLM({ history, prompt, provider, model, log, u
         if (simpleCacheResponse) {
             log.cacheHit('simple');
             return {
-            text: JSON.stringify(simpleCacheResponse),
-            usage: CACHE_USAGE_OBJECT,
-            provider,
-            model,
-            log: log.getLog(),
-            simpleCacheHit: true,
+                text: JSON.stringify(simpleCacheResponse),
+                usage: CACHE_USAGE_OBJECT,
+                provider,
+                model,
+                log: log.getLog(),
+                simpleCacheHit: true,
+                cost: 0
             }
         }; 
       
@@ -64,12 +65,13 @@ export default async function callLLM({ history, prompt, provider, model, log, u
         if (semanticCacheResponse) {
             log.cacheHit('semantic');
             return {
-            text: semanticCacheResponse,
-            usage: CACHE_USAGE_OBJECT,
-            provider,
-            model,
-            log: log.getLog(),
-            semanticCacheHit: true
+                text: semanticCacheResponse,
+                usage: CACHE_USAGE_OBJECT,
+                provider,
+                model,
+                log: log.getLog(),
+                semanticCacheHit: true,
+                cost: 0,
             };
         }
       
@@ -142,7 +144,8 @@ export default async function callLLM({ history, prompt, provider, model, log, u
             usage: tokensUsed,
             provider,
             model,
-            log: log.getLog()
+            log: log.getLog(),
+            cost: cost
         }
     } catch (error) {
         console.error(`Error in ${provider} call:`, error);

@@ -1,6 +1,5 @@
 import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
 import { getEmbedding, indexVector } from "./vectorSearch";
-import { retryWithBackoff } from "./retryWithBackoff";
 import { GuardrailS3Params } from "./types";
 
 const s3 = new S3Client({ region: process.env.AWS_REGION });

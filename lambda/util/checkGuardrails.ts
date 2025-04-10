@@ -8,6 +8,7 @@ const guardrailsIndex = process.env.OPENSEARCH_GUARDRAILS_INDEX;
 
 function checkGuardrailsLevelOne(llmResponse: string, log: RoutingLog): GuardrailResult {
     const config = getConfig();
+    log.routedToGuardrails('one');
     for (const word of config.guardrails.restrictedWords) {
         if (llmResponse.toLowerCase().includes(word.toLowerCase())) {
             log.guardrailHit('one', word)
@@ -26,15 +27,22 @@ export async function checkGuardrailsLevelTwo(prompt: string, llmResponse: strin
     }
 
     for (const chunk of chunks) {
-        const embedding = await getEmbedding(chunk);
-        const matches = await searchKNN(guardrailsIndex, embedding, 1);
-        const topMatch = matches[0];
-        const similarity = topMatch._score ?? 0;
-
-        if (similarity > config.guardrails.threshold) {
-            log.guardrailHit('two', topMatch._source.text)
-            return { isBlocked: true, match: topMatch._source.text };
+        try {
+            const embedding = await getEmbedding(chunk);
+            const matches = await searchKNN(guardrailsIndex, embedding, 1);
+            const topMatch = matches[0];
+            const similarity = topMatch._score ?? 0;
+            log.routedToGuardrails('two', topMatch._score ?? 0, topMatch._source.text)
+            if (similarity > config.guardrails.threshold) {
+                log.guardrailHit('two', topMatch._source.text)
+                return { isBlocked: true, match: topMatch._source.text };
+            }
+            
+        } catch (error) {
+            console.error('Error in checkGuardrailsLevelTwo: ', error);
+            return { isBlocked: false };
         }
+
     }
 
     return { isBlocked: false };

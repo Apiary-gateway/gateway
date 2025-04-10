@@ -3,6 +3,7 @@ import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
 import { signedPost } from './util/vectorSearch';
 import { signedDelete } from './deleteDocument';
 import { z } from 'zod';
+import { getEmbedding } from './util/vectorSearch';
 
 const SendSignedPostRequestResponseSchema = z.object({
   hits: z.object({
@@ -64,8 +65,11 @@ async function deleteGuardrailFromOpenSearchById(id: string) {
 }
 
 async function addGuardrailToOpenSearch(guardrail: string) {
+  const embedding = await getEmbedding(guardrail);
+
   const data = await signedPost(`/${OPENSEARCH_GUARDRAILS_INDEX}/_doc`, {
     text: guardrail,
+    embedding
   });
 
   if (data.result !== 'created') {

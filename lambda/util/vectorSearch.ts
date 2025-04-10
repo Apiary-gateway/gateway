@@ -66,7 +66,10 @@ export async function searchKNN(
     },
   };
 
+  console.log(`searchKNN raw response for index [${index}]:`);
+  
   const response = await signedPost(`/${index}/_search`, body);
+  console.dir(response, { depth: null });
   return response?.hits?.hits ?? [];
 }
 
@@ -102,6 +105,7 @@ export async function signedPost(path: string, body: object) {
     const requestBody = JSON.stringify(body);
 
     const hostname = new URL(collectionEndpoint).hostname;
+    // console.log('hostname for signedPost: ', hostname);
 
     const request = new HttpRequest({
       method: 'POST',
