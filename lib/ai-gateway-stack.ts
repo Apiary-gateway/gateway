@@ -461,6 +461,7 @@ export class AiGatewayStack extends Stack {
       handler: 'handler',
       runtime: lambda.Runtime.NODEJS_18_X,
       timeout: Duration.seconds(30),
+      role: semanticCacheLambdaRole,
       bundling: {
         format: lambdaNode.OutputFormat.CJS,
         externalModules: ['aws-sdk'],
@@ -473,6 +474,7 @@ export class AiGatewayStack extends Stack {
         SYSTEM_PROMPT: 'You are a helpful assistant. You answer in cockney.',
         LOG_BUCKET_NAME: logBucket.bucketName,
         CACHE_TABLE_NAME: aiGatewayCacheTable.tableName,
+        OPENSEARCH_ENDPOINT: vectorCollection.attrCollectionEndpoint,
         OPENSEARCH_INDEX: 'semantic-cache-index',
         OPENSEARCH_GUARDRAILS_INDEX: 'guardrails-index',
         CONFIG_BUCKET_NAME: configBucket.bucketName,
@@ -481,8 +483,15 @@ export class AiGatewayStack extends Stack {
 
     routerFn.addToRolePolicy(
       new iam.PolicyStatement({
-        actions: ['scheduler:CreateSchedule', 'iam:PassRole'],
-        resources: ['*'],
+        actions: [
+          'scheduler:CreateSchedule',
+          'iam:PassRole',
+          'bedrock:GetFoundationModel',
+        ],
+        resources: [
+          '*', // for scheduler + iam
+          `arn:aws:bedrock:${this.region}::foundation-model/amazon.titan-embed-text-v2:0`,
+        ],
       })
     );
 
@@ -656,6 +665,10 @@ export class AiGatewayStack extends Stack {
     const logsResource = api.root.addResource('logs');
     const logsIntegration = new apigateway.LambdaIntegration(logsFn);
     logsResource.addMethod('GET', logsIntegration, { apiKeyRequired: false });
+
+    const configResource = api.root.addResource('config');
+    const configIntegration = new apigateway.LambdaIntegration(presignedUrlLambda);
+    configResource.addMethod('GET', configIntegration, { apiKeyRequired: false });
 
     // OPTIONS method for CORS preflight for /logs
     const optionsIntegration = new apigateway.MockIntegration({

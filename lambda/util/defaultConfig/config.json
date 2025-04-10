@@ -14,11 +14,11 @@
     "semanticCacheThreshold": 0.70
   },
   "guardrails": {
-    "enabled": false,
+    "enabled": true,
     "threshold": 0.70,
     "restrictedWords": [],
-    "sensitivityLevel": 0,
+    "sensitivityLevel": 2,
     "resendOnViolation": false, 
-    "blockedContentResponse": "Content redacted"
+    "blockedContentResponse": "Content redacted from default"
   }
 }
