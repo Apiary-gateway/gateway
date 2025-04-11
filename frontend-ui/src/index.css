@@ -669,3 +669,53 @@ body {
     opacity: 1;
   }
 }
+
+.routing-history-vertical {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.routing-event-block {
+  background-color: #4b5563;
+  padding: 12px;
+  border-radius: 6px;
+  font-size: 13px;
+}
+
+.event-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.event-type {
+  color: #f3f4f6;
+  font-size: 14px;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.event-toggle-button {
+  background: none;
+  color: #9ca3af;
+  border: none;
+  cursor: pointer;
+  font-size: 12px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+}
+
+.event-toggle-button:hover {
+  background-color: #6b7280;
+}
+
+.event-details {
+  margin-top: 8px;
+  padding-left: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: #d1d5db;
+}

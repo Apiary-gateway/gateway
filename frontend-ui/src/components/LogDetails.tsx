@@ -115,20 +115,85 @@ const ModelRoutingHistory = ({ history }: { history: any }) => {
       <div className="log-detail-row">
         <div className="log-detail-label">Model Routing History</div>
         <div className="log-detail-value">
-          <div className="routing-history">
-            {events.map((event, index) => (
-              <div key={index} className="routing-event">
-                <span className="event-type">{event.type || 'routed'}</span>
-                {event.provider && (
-                  <span className="event-detail">
-                    {event.provider}:{event.model || 'default'}
-                  </span>
-                )}
-                {index < events.length - 1 && (
-                  <span className="event-arrow">→</span>
-                )}
-              </div>
-            ))}
+          <div className="routing-history-vertical">
+            {events.map((event, index) => {
+              const [isExpanded, setIsExpanded] = useState(false);
+              const { type } = event;
+  
+              return (
+                <div key={index} className="routing-event-block">
+                  <div className="event-header">
+                    <strong className="event-type">{type}</strong>
+                    <button
+                      className="event-toggle-button"
+                      onClick={() => setIsExpanded(!isExpanded)}
+                    >
+                      {isExpanded ? '▼ Hide Details' : '▶ Show Details'}
+                    </button>
+                  </div>
+  
+                  {isExpanded && (
+                    <div className="event-details">
+                      {'provider' in event && (
+                        <div className="event-detail">
+                          Provider: {event.provider}
+                        </div>
+                      )}
+                      {'model' in event && (
+                        <div className="event-detail">
+                          Model: {event.model}
+                        </div>
+                      )}
+                      {'newProvider' in event && (
+                        <div className="event-detail">
+                          Fallback Provider: {event.newProvider}
+                        </div>
+                      )}
+                      {'newModel' in event && (
+                        <div className="event-detail">
+                          Fallback Model: {event.newModel}
+                        </div>
+                      )}
+                      {'condition' in event && (
+                        <div className="event-detail">
+                          Condition: {event.condition}
+                        </div>
+                      )}
+                      {'level' in event && (
+                        <div className="event-detail">
+                          Level: {event.level}
+                        </div>
+                      )}
+                      {'match' in event && (
+                        <div className="event-detail">
+                          Top match: {event.match}
+                        </div>
+                      )}
+                      {'topmatch' in event && (
+                        <div className="event-detail">
+                          Similarity Score: {event.topmatch.toFixed(2)}
+                        </div>
+                      )}
+                      {'error' in event && (
+                        <div className="event-detail">
+                          Error: {event.error}
+                        </div>
+                      )}
+                      {'statusCode' in event && (
+                        <div className="event-detail">
+                          Status Code: {event.statusCode}
+                        </div>
+                      )}
+                      {'cacheType' in event && (
+                        <div className="event-detail">
+                          Cache Type: {event.cacheType}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>
