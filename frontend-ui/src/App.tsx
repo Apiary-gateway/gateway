@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { getLogsFromAthena, getLogsFromDynamo } from './services/logs.service'; // Adjust the import path
 import LogsTable from './components/LogsTable'; // Adjust the import path
 import { LogEntry } from './types/logs.types';
@@ -26,8 +26,9 @@ function App() {
   const [selectedLog, setSelectedLog] = useState<LogEntry | null>(null);
   const [isGuardrailsModalOpen, setIsGuardrailsModalOpen] =
     useState<boolean>(false);
-  const [isConfigModalOpen, setIsConfigModalOpen] =
-    useState<boolean>(false);
+  const [isConfigModalOpen, setIsConfigModalOpen] = useState<boolean>(false);
+  const [isMenuOpen, setIsMenuOpen] = useState<boolean>(false);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   const fetchLogsFromAthena = async () => {
     setIsLoading(true);
@@ -75,6 +76,19 @@ function App() {
     }
   }, [showAthenaLogs]);
 
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setIsMenuOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
   const handlePageSelect = (page: number) => {
     setCurrentPage(page);
   };
@@ -120,23 +134,59 @@ function App() {
   return (
     <div className="app-container">
       <header className="app-header">
+        <img
+          src="./assets/apiary-logo-black-bg.png"
+          alt="AI Gateway Logo"
+          className="logo"
+        />
         <h1>AI GATEWAY LOGS ({showAthenaLogs ? 'Athena' : 'Dynamo'})</h1>
-        <div className="header-buttons">
-          <button className="toggle-button" onClick={handleToggleLogs}>
-            {showAthenaLogs ? 'Show Dynamo Logs' : 'Show Athena Logs'}
-          </button>
-          <button
-            className="guardrails-button"
-            onClick={() => setIsGuardrailsModalOpen(true)}
+        <div ref={menuRef}>
+          <div
+            className="hamburger-menu"
+            onClick={() => setIsMenuOpen(!isMenuOpen)}
           >
-            Manage Guardrails
-          </button>
-          <button
-            className="config-button"
-            onClick={() => setIsConfigModalOpen(true)}
-          >
-            Manage Gateway Configuration
-          </button>
+            <div className="hamburger-line"></div>
+            <div className="hamburger-line"></div>
+            <div className="hamburger-line"></div>
+          </div>
+          <div className={`menu-dropdown ${isMenuOpen ? 'active' : ''}`}>
+            <button
+              className="menu-button"
+              onClick={() => {
+                handleToggleLogs();
+                setIsMenuOpen(false);
+              }}
+            >
+              <svg viewBox="0 0 24 24" width="24" height="24">
+                <path d="M4 6h16v2H4zm0 5h16v2H4zm0 5h16v2H4z" />
+              </svg>
+              {showAthenaLogs ? 'Show Dynamo Logs' : 'Show Athena Logs'}
+            </button>
+            <button
+              className="menu-button"
+              onClick={() => {
+                setIsGuardrailsModalOpen(true);
+                setIsMenuOpen(false);
+              }}
+            >
+              <svg viewBox="0 0 24 24" width="24" height="24">
+                <path d="M12 2L4 5v6.09c0 5.05 3.41 9.76 8 10.91 4.59-1.15 8-5.86 8-10.91V5l-8-3zm-1.06 13.54L7.4 12l1.41-1.41 2.12 2.12 4.24-4.24 1.41 1.41-5.64 5.66z" />
+              </svg>
+              Manage Guardrails
+            </button>
+            <button
+              className="menu-button"
+              onClick={() => {
+                setIsConfigModalOpen(true);
+                setIsMenuOpen(false);
+              }}
+            >
+              <svg viewBox="0 0 24 24" width="24" height="24">
+                <path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.07.63-.07.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z" />
+              </svg>
+              Manage Gateway Configuration
+            </button>
+          </div>
         </div>
       </header>
       <LogsTable
