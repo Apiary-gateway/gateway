@@ -1,19 +1,22 @@
 /* index.css */
+@import url('https://fonts.googleapis.com/css2?family=Gotham:wght@400;700&display=swap');
+
 body {
   margin: 0;
   padding: 16px;
-  background-color: #343541;
+  background-color: #1a1b26;
+  font-family: 'Gotham', 'Helvetica', 'Arial', sans-serif;
 }
 
 .app-container {
   position: relative;
-  background-color: #343541; /* ChatGPT-like dark gray background */
-  min-height: 100vh; /* Full height coverage */
-  color: #d1d5db; /* Light gray text */
-  margin: 0 auto; /* Center horizontally */
-  padding: 0; /* Remove padding to eliminate white space */
-  font-family: 'Inter', 'Helvetica', 'Arial', sans-serif; /* Sans-serif font */
-  max-width: 1000px; /* Constrain to a reasonable width */
+  background-color: #1a1b26;
+  min-height: 100vh;
+  color: #d1d5db;
+  margin: 0 auto;
+  padding: 0;
+  font-family: 'Gotham', 'Helvetica', 'Arial', sans-serif;
+  max-width: 1000px;
 }
 
 .app-container h1 {
@@ -178,12 +181,160 @@ body {
   display: flex;
   align-items: center;
   padding: 32px 8px;
+  gap: 32px;
+  position: relative;
+  border-bottom: 1px solid #2a2b3a;
+  margin-bottom: 24px;
+}
+
+.logo {
+  height: 80px;
+  width: auto;
+  object-fit: contain;
+  padding: 12px;
+  background-color: #2a2b3a;
+  border-radius: 12px;
+  border: 2px solid #3a3b4a;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
 .app-header h1 {
-  flex: 1; /* Let the H1 grow to fill space */
-  text-align: center; /* Center text in that space */
-  margin: 0; /* remove default h1 margin if necessary */
+  flex: 1;
+  text-align: center;
+  margin: 0;
+  font-size: 28px;
+  color: #f3f4f6;
+  font-weight: 700;
+}
+
+.hamburger-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  cursor: pointer;
+  padding: 12px;
+  z-index: 100;
+  background-color: #2a2b3a;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+  border: 1px solid #3a3b4a;
+}
+
+.hamburger-menu:hover {
+  background-color: #3a3b4a;
+}
+
+.hamburger-line {
+  width: 24px;
+  height: 2px;
+  background-color: #f3f4f6;
+  transition: all 0.3s ease;
+}
+
+.hamburger-menu.active {
+  background-color: #4b5563;
+}
+
+.hamburger-menu.active .hamburger-line:nth-child(1) {
+  transform: translateY(8px) rotate(45deg);
+}
+
+.hamburger-menu.active .hamburger-line:nth-child(2) {
+  opacity: 0;
+}
+
+.hamburger-menu.active .hamburger-line:nth-child(3) {
+  transform: translateY(-8px) rotate(-45deg);
+}
+
+.menu-dropdown {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  background-color: #2a2b3a;
+  border-radius: 8px;
+  padding: 16px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  display: none;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 240px;
+  z-index: 99;
+  border: 1px solid #3a3b4a;
+  margin-top: 4px;
+}
+
+.menu-dropdown.active {
+  display: flex;
+  animation: fadeIn 0.2s ease-out;
+}
+
+.menu-button {
+  padding: 12px 16px;
+  background-color: #3a3b4a;
+  color: #f3f4f6;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 700;
+  transition: all 0.3s ease;
+  text-align: left;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  border: 1px solid #4a4b5a;
+}
+
+.menu-button:hover {
+  background-color: #4a4b5a;
+  transform: translateX(4px);
+}
+
+.menu-button:active {
+  transform: translateX(4px) scale(0.98);
+}
+
+.menu-button svg {
+  width: 16px;
+  height: 16px;
+  fill: currentColor;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.menu-button.toggle-button {
+  background-color: #4caf50;
+}
+
+.menu-button.toggle-button:hover {
+  background-color: #45a049;
+}
+
+.menu-button.guardrails-button {
+  background-color: #3b82f6;
+}
+
+.menu-button.guardrails-button:hover {
+  background-color: #2563eb;
+}
+
+.menu-button.config-button {
+  background-color: #8b5cf6;
+}
+
+.menu-button.config-button:hover {
+  background-color: #7c3aed;
 }
 
 .toggle-button {
@@ -607,7 +758,7 @@ body {
 
 .header-buttons {
   display: flex;
-  gap: 12px;
+  gap: 8px;
   margin-left: auto;
 }
 
