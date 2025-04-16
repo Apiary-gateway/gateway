@@ -105,7 +105,6 @@ export async function signedPost(path: string, body: object) {
     const requestBody = JSON.stringify(body);
 
     const hostname = new URL(collectionEndpoint).hostname;
-    // console.log('hostname for signedPost: ', hostname);
 
     const request = new HttpRequest({
       method: 'POST',

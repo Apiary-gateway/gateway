@@ -19,7 +19,7 @@
     "restrictedWords": [],
     "sensitivityLevel": 2,
     "resendOnViolation": false, 
-    "blockedContentResponse": "Content redacted from default"
+    "blockedContentResponse": "I'm sorry, I can't answer that."
   },
   "systemPrompt": "You are a helpful assistant. You are jovial."
 }

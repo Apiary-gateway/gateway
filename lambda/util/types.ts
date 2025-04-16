@@ -51,7 +51,7 @@ export type GuardrailsConfig = {
     enabled: boolean;
     threshold: number;
     restrictedWords: string[];
-    sensitivityLevel: 0 | 1 | 2; // no checks, exact words, phrases;
+    sensitivityLevel: 0 | 1 | 2; 
     resendOnViolation: boolean;
     blockedContentResponse: string;
 }
