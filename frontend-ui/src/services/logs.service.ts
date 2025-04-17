@@ -18,7 +18,6 @@ export const API_BASE_URL = getApiEndpoint();
 export const getLogsFromDynamo = async (
   nextToken: string | null
 ): Promise<LogsResponse> => {
-  console.log(API_BASE_URL);
   try {
     const { data } = await axios.get(`${API_BASE_URL + 'logs'}`, {
       params: {
