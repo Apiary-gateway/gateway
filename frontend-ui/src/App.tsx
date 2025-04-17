@@ -6,6 +6,7 @@ import Modal from './components/Modal';
 import LogDetail from './components/LogDetails';
 import Guardrails from './components/Guardrails';
 import Config from './components/Config';
+import logo from './assets/apiary-logo-black-bg.png';
 
 function App() {
   const [showAthenaLogs, setShowAthenaLogs] = useState<boolean>(false);
@@ -134,11 +135,7 @@ function App() {
   return (
     <div className="app-container">
       <header className="app-header">
-        <img
-          src="./assets/apiary-logo-black-bg.png"
-          alt="AI Gateway Logo"
-          className="logo"
-        />
+        <img src={logo} alt="AI Gateway Logo" className="logo" />
         <h1>AI GATEWAY LOGS ({showAthenaLogs ? 'Athena' : 'Dynamo'})</h1>
         <div ref={menuRef}>
           <div
