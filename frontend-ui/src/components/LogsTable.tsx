@@ -36,6 +36,18 @@ function LogsTable({
     });
   };
 
+  const getTokensAndCost = (log: LogEntry) => {
+    const rawResponse = JSON.parse(log.raw_response || '{}');
+
+    try {
+      const usage = rawResponse.usage.total_tokens;
+      const cost = ((rawResponse.usage.cost as number) * 100).toFixed(3);
+      return `${usage} / ${cost} Cents`;
+    } catch {
+      return 'NA';
+    }
+  };
+
   return (
     <div>
       <table className="logs-table">
@@ -66,7 +78,7 @@ function LogsTable({
               <td>{log.latency || 'NA'}</td>
               <td>{log.model || 'NA'}</td>
               <td>{log.provider || 'NA'}</td>
-              <td>WIP</td>
+              <td>{getTokensAndCost(log)}</td>
               <td>
                 <button
                   className="details-button"

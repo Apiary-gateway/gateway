@@ -119,7 +119,7 @@ const ModelRoutingHistory = ({ history }: { history: any }) => {
             {events.map((event, index) => {
               const [isExpanded, setIsExpanded] = useState(false);
               const { type } = event;
-  
+
               return (
                 <div key={index} className="routing-event-block">
                   <div className="event-header">
@@ -131,7 +131,7 @@ const ModelRoutingHistory = ({ history }: { history: any }) => {
                       {isExpanded ? '▼ Hide Details' : '▶ Show Details'}
                     </button>
                   </div>
-  
+
                   {isExpanded && (
                     <div className="event-details">
                       {'provider' in event && (
@@ -140,9 +140,7 @@ const ModelRoutingHistory = ({ history }: { history: any }) => {
                         </div>
                       )}
                       {'model' in event && (
-                        <div className="event-detail">
-                          Model: {event.model}
-                        </div>
+                        <div className="event-detail">Model: {event.model}</div>
                       )}
                       {'newProvider' in event && (
                         <div className="event-detail">
@@ -160,9 +158,7 @@ const ModelRoutingHistory = ({ history }: { history: any }) => {
                         </div>
                       )}
                       {'level' in event && (
-                        <div className="event-detail">
-                          Level: {event.level}
-                        </div>
+                        <div className="event-detail">Level: {event.level}</div>
                       )}
                       {'match' in event && (
                         <div className="event-detail">
@@ -175,9 +171,7 @@ const ModelRoutingHistory = ({ history }: { history: any }) => {
                         </div>
                       )}
                       {'error' in event && (
-                        <div className="event-detail">
-                          Error: {event.error}
-                        </div>
+                        <div className="event-detail">Error: {event.error}</div>
                       )}
                       {'statusCode' in event && (
                         <div className="event-detail">
