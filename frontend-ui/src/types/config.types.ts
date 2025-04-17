@@ -55,7 +55,9 @@ export const guardrailsSchema = z.object({
 
 export const cacheSchema = z.object({
   enableSimple: z.boolean(),
+  simpleCacheTtlSeconds: z.number(),
   enableSemantic: z.boolean(),
+  semanticCacheTtlSeconds: z.number(),
   semanticCacheThreshold: z
     .number()
     .min(0, 'Must be between 0 and 1')
