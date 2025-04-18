@@ -11,7 +11,10 @@ import type { CompletionResponse } from 'token.js';
 
 const dynamoClient = new DynamoDBClient();
 const CACHE_TABLE_NAME = process.env.CACHE_TABLE_NAME || '';
+<<<<<<< Updated upstream
 const CACHE_TTL_SECONDS = 60 * 5; // 5 minutes
+=======
+>>>>>>> Stashed changes
 
 function getUserId(userId?: string): string {
   return userId ? userId : 'global';
@@ -64,6 +67,8 @@ export async function addToSimpleCache(
 ) {
   userId = getUserId(userId);
   const cacheKey = getCacheKey(prompt, provider, model);
+  const config = getConfig();
+  const CACHE_TTL_SECONDS = config.cache.simpleCacheTtlSeconds || 300;
   const ttl = Math.floor(Date.now() / 1000) + CACHE_TTL_SECONDS;
 
   const input = {

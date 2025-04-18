@@ -14,7 +14,10 @@ import { v4 as uuidv4 } from "uuid";
 // format cached response better - ex. tokens used = 0
 
 const indexName = process.env.OPENSEARCH_INDEX;
+<<<<<<< Updated upstream
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+=======
+>>>>>>> Stashed changes
 
 export async function checkSemanticCache(
   requestEmbedding: number[],
@@ -23,6 +26,10 @@ export async function checkSemanticCache(
   model?: string
 ) { 
   const config = getConfig();
+<<<<<<< Updated upstream
+=======
+
+>>>>>>> Stashed changes
   const similarityThreshold = config.cache.semanticCacheThreshold;
   [ userId, provider, model ] = getFilters(userId, provider, model);
 
@@ -94,6 +101,8 @@ async function scheduleDelete(documentId: string) {
   console.log(`scheduling delete for document: ${documentId}`);
   
   const scheduler = new SchedulerClient({});
+  const config = getConfig();
+  const CACHE_TTL_MS = config.cache.semanticCacheTtlSeconds * 1000 || 300 * 1000; 
 
   let runAt = new Date(Date.now() + CACHE_TTL_MS).toISOString();
   const runAtFormatMatch = runAt.match(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/);
