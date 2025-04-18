@@ -3,18 +3,10 @@ import {
   GetItemCommand,
   PutItemCommand,
 } from "@aws-sdk/client-dynamodb";
-import type { CompletionResponse } from 'token.js';
-
-// TODOS
-// add to README - optional `userId` field in request body for cache partitioning
-// add configuration to `callLLM` function to conditionally check just simple cache or both simple & semantic
+import { getConfig } from './getConfig';
 
 const dynamoClient = new DynamoDBClient();
 const CACHE_TABLE_NAME = process.env.CACHE_TABLE_NAME || '';
-<<<<<<< Updated upstream
-const CACHE_TTL_SECONDS = 60 * 5; // 5 minutes
-=======
->>>>>>> Stashed changes
 
 function getUserId(userId?: string): string {
   return userId ? userId : 'global';

@@ -5,19 +5,7 @@ import { getConfig } from './getConfig';
 import { SchedulerClient, CreateScheduleCommand } from "@aws-sdk/client-scheduler";
 import { v4 as uuidv4 } from "uuid";
 
-
-// TODO
-// Check supported Bedrock regions and validate regional support in CDK stack
-// test different embedding sizes? 1024, 512, and 256 options for Titan v2
-// if embedding request fails, just move on - right? 
-// include cache hit or miss header in response from `router`
-// format cached response better - ex. tokens used = 0
-
 const indexName = process.env.OPENSEARCH_INDEX;
-<<<<<<< Updated upstream
-const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
-=======
->>>>>>> Stashed changes
 
 export async function checkSemanticCache(
   requestEmbedding: number[],
@@ -26,10 +14,7 @@ export async function checkSemanticCache(
   model?: string
 ) { 
   const config = getConfig();
-<<<<<<< Updated upstream
-=======
 
->>>>>>> Stashed changes
   const similarityThreshold = config.cache.semanticCacheThreshold;
   [ userId, provider, model ] = getFilters(userId, provider, model);
 

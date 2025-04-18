@@ -58,7 +58,9 @@ export type GuardrailsConfig = {
 
 export type CacheConfig = {
     enableSimple: boolean;
+    simpleCacheTtlSeconds: number;
     enableSemantic: boolean;
+    semanticCacheTtlSeconds: number;
     semanticCacheThreshold: number;
 }
 

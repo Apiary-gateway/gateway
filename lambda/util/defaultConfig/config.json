@@ -10,7 +10,9 @@
   },
   "cache": {
     "enableSimple": true,
+    "simpleCacheTtlSeconds": 300,
     "enableSemantic": false,
+    "semanticCacheTtlSeconds": 300,
     "semanticCacheThreshold": 0.70
   },
   "guardrails": {

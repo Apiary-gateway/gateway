@@ -179,6 +179,7 @@ body {
 
 .app-header {
   display: flex;
+  justify-content: space-between;
   align-items: center;
   padding: 32px 8px;
   gap: 32px;
@@ -869,4 +870,18 @@ body {
   flex-direction: column;
   gap: 4px;
   color: #d1d5db;
+}
+
+.app-header-title-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.app-header-title-subtext {
+  font-size: 16px;
+  color: #9ca3af;
+  text-align: center;
+  font-weight: 500;
 }
