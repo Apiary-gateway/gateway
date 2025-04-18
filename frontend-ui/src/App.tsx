@@ -6,7 +6,7 @@ import Modal from './components/Modal';
 import LogDetail from './components/LogDetails';
 import Guardrails from './components/Guardrails';
 import Config from './components/Config';
-// import logo from './assets/apiary-logo-black-bg.png';
+import logo from './assets/apiary-logo-black-bg.png';
 
 function App() {
   const [showAthenaLogs, setShowAthenaLogs] = useState<boolean>(false);
@@ -135,24 +135,13 @@ function App() {
   return (
     <div className="app-container">
       <header className="app-header">
-<<<<<<< Updated upstream
         <img src={logo} alt="AI Gateway Logo" className="logo" />
-<<<<<<< HEAD
-        <h1>AI GATEWAY LOGS ({showAthenaLogs ? 'Athena' : 'Dynamo'})</h1>
-=======
-        {/* <img src={logo} alt="AI Gateway Logo" className="logo" /> */}
-=======
->>>>>>> 9cb630fc7e7e25658026aef33fe39615d882ae5e
         <div className="app-header-title-container">
           <h1>AI GATEWAY LOGS </h1>
           <span className="app-header-title-subtext">
             {showAthenaLogs ? 'Long Term ' : ' Short Term'}
           </span>
         </div>
-<<<<<<< HEAD
->>>>>>> Stashed changes
-=======
->>>>>>> 9cb630fc7e7e25658026aef33fe39615d882ae5e
         <div ref={menuRef}>
           <div
             className="hamburger-menu"
