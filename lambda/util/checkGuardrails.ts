@@ -62,7 +62,7 @@ export async function checkGuardrails(prompt: string, llmResponse: string, log: 
         }
     
         if (config.guardrails.sensitivityLevel === 2) {
-
+            log.routedToGuardrails('two');
             const levelTwo = await checkGuardrailsLevelTwo(prompt, llmResponse, log);
             return levelTwo;
         }

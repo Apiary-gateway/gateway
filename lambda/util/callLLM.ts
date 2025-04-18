@@ -1,4 +1,3 @@
-import { SYSTEM_PROMPT } from './constants';
 import { TokenJS } from 'token.js';
 import { CallLLMArgs, CallLLMResponse } from './types';
 import { SecretsManagerClient, GetSecretValueCommand } from "@aws-sdk/client-secrets-manager";
