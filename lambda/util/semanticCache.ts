@@ -5,16 +5,7 @@ import { getConfig } from './getConfig';
 import { SchedulerClient, CreateScheduleCommand } from "@aws-sdk/client-scheduler";
 import { v4 as uuidv4 } from "uuid";
 
-
-// TODO
-// Check supported Bedrock regions and validate regional support in CDK stack
-// test different embedding sizes? 1024, 512, and 256 options for Titan v2
-// if embedding request fails, just move on - right? 
-// include cache hit or miss header in response from `router`
-// format cached response better - ex. tokens used = 0
-
 const indexName = process.env.OPENSEARCH_INDEX;
-const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
 export async function checkSemanticCache(
   requestEmbedding: number[],
@@ -23,6 +14,7 @@ export async function checkSemanticCache(
   model?: string
 ) { 
   const config = getConfig();
+
   const similarityThreshold = config.cache.semanticCacheThreshold;
   [ userId, provider, model ] = getFilters(userId, provider, model);
 
@@ -94,6 +86,8 @@ async function scheduleDelete(documentId: string) {
   console.log(`scheduling delete for document: ${documentId}`);
   
   const scheduler = new SchedulerClient({});
+  const config = getConfig();
+  const CACHE_TTL_MS = config.cache.semanticCacheTtlSeconds * 1000 || 300 * 1000; 
 
   let runAt = new Date(Date.now() + CACHE_TTL_MS).toISOString();
   const runAtFormatMatch = runAt.match(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/);
