@@ -153,7 +153,8 @@ export class Logger {
     provider: string,
     modelRoutingHistory: RoutingLog,
     successReason: string,
-    rawResponse: string
+    rawResponse: string,
+    cost?: number,
   ) {
     const modelRoutingHistoryJsonArray = modelRoutingHistory.events.map((e) =>
       JSON.stringify(e, null, 2)
@@ -165,6 +166,7 @@ export class Logger {
     this.success_reason = successReason;
     this.raw_response = rawResponse;
     this.is_successful = true;
+    this.cost = cost ?? null;
 
     await this.log();
   }

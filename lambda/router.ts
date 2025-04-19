@@ -47,7 +47,8 @@ export const handler = async (event: unknown) => {
         response.provider,
         response.log,
         successReason,
-        JSON.stringify(response, null, 2)
+        JSON.stringify(response, null, 2),
+        response.cost
       );
       return {
         statusCode: 200,

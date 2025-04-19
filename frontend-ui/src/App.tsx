@@ -135,7 +135,7 @@ function App() {
   return (
     <div className="app-container">
       <header className="app-header">
-        <img src={logo} alt="AI Gateway Logo" className="logo" />
+        <img src={logo} alt="Apiary Logo" className="logo" />
         <div className="app-header-title-container">
           <h1>AI GATEWAY LOGS </h1>
           <span className="app-header-title-subtext">

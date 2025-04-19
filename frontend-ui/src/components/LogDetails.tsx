@@ -242,6 +242,10 @@ const LogDetail = ({ log }: LogDetailProps) => {
       return value ? 'success' : 'failure';
     }
 
+    if (key === 'cost') {
+      return `$${Number(value).toFixed(7)}`;
+    }
+
     return String(value);
   };
 
