@@ -5,7 +5,8 @@ import { CallLLMArgs,
          SupportedLLMs, 
          ModelForProvider, 
          RoutingLog as RoutingLogType,
-         RoutingCondition } from './types';
+         RoutingCondition, 
+         CallLLMResponse} from './types';
 import callLLM from './callLLM';
 import { CompletionResponse } from 'token.js';
 import { getErrorStatusCode } from './errorHandling';
@@ -16,15 +17,7 @@ import { retryWithBackoff } from './retryWithBackoff';
 import { getConfig } from './getConfig'
 
 export async function routeRequest({ history, prompt, provider, model, metadata, userId }: Omit <RouteRequestArgs, 'log'>):
-Promise<{       
-  text: string, 
-  usage: CompletionResponse['usage'], 
-  provider: SupportedLLMs, 
-  model: ModelForProvider<SupportedLLMs>, 
-  log: RoutingLogType,
-  simpleCacheHit?: boolean,
-  semanticCacheHit?: boolean 
-}> {
+Promise<CallLLMResponse> {
 
     const log = new RoutingLog();
     const config = getConfig();

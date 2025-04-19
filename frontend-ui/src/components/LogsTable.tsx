@@ -41,8 +41,9 @@ function LogsTable({
 
     try {
       const usage = rawResponse.usage.total_tokens;
-      const cost = ((rawResponse.usage.cost as number) * 100).toFixed(3);
-      return `${usage} / ${cost} Cents`;
+      const cost = (Number(log.cost) * 100).toFixed(3);
+      // const cost = ((rawResponse.usage.cost as number) * 100).toFixed(3);
+      return `${usage} / ${cost} cents`;
     } catch {
       return 'NA';
     }
