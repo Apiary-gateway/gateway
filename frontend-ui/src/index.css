@@ -262,7 +262,7 @@ body {
   min-width: 240px;
   z-index: 99;
   border: 1px solid #3a3b4a;
-  margin-top: 4px;
+  margin-top: -48px;
 }
 
 .menu-dropdown.active {
