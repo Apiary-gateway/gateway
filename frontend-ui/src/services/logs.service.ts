@@ -13,7 +13,7 @@ import { LogsResponse, LogsResponseSchema } from '../types/logs.types';
 // export const API_BASE_URL = getApiEndpoint();
 
 export const API_BASE_URL =
-  'https://tbisag5lq9.execute-api.us-east-1.amazonaws.com/dev/';
+  'https://ds6bkq9716.execute-api.us-east-2.amazonaws.com/dev/';
 
 export const getLogsFromDynamo = async (
   nextToken: string | null
