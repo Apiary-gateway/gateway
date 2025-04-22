@@ -16,7 +16,7 @@ body {
   margin: 0 auto;
   padding: 0;
   font-family: 'Gotham', 'Helvetica', 'Arial', sans-serif;
-  max-width: 1000px;
+  max-width: 1400px;
 }
 
 .app-container h1 {
@@ -262,7 +262,7 @@ body {
   min-width: 240px;
   z-index: 99;
   border: 1px solid #3a3b4a;
-  margin-top: 4px;
+  margin-top: -48px;
 }
 
 .menu-dropdown.active {
