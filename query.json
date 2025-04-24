@@ -1,0 +1,13 @@
+{
+  "TableName": "ai-gateway-logs-table",
+  "KeyConditionExpression": "PK = :pk",
+  "ExpressionAttributeValues": {
+    ":pk": { "S": "LOG" }
+  },
+  "ScanIndexForward": false,
+  "Limit": 15,
+  "ExclusiveStartKey": {
+    "PK": { "S": "LOG" },
+    "SK": { "S": "TS#2025-04-05T21:20:10.571Z" }
+  }
+}

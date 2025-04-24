@@ -1,88 +1,76 @@
-import { z } from 'zod';
-import callLLM from './util/callLLM';
-import { saveMessage, getMessageHistory  } from './util/getAndSaveMessages';
+import { validateRequest } from './util/validateRequest';
+import {
+  extractRequestData,
+  extractRequestMetadata,
+} from './util/extractRequestData';
+import { getMessageHistory, saveMessages } from './util/getAndSaveMessages';
+import { routeRequest } from './util/routeRequest';
+import { Logger } from './util/logger';
+import { initConfig } from './util/getConfig';
 
+export const handler = async (event: unknown) => {
+    await initConfig();
+    const logger = new Logger();
+    logger.setRawRequest(JSON.stringify(event, null, 2));
+    
+    try {
+      const payload = validateRequest(event);
+      const { threadID, prompt, provider, model, userId } =
+        extractRequestData(payload);
+      const metadata = extractRequestMetadata(event, payload);
 
-const RequestSchema = z.object({ 
-    prompt: z.string().min(1),
-    threadID: z.string().optional(),
-    provider: z.enum([ 'openai', 'anthropic', 'gemini' ]).optional(),
-    model: z.enum([ 'gpt-3.5-turbo', 'gpt-4', 'claude-3-opus-20240229', 'gemini-1.5-pro']).optional(),
-})
+      logger.setInitialData(threadID, userId, JSON.stringify(metadata));
 
-type RequestPayload = z.infer<typeof RequestSchema>;
+      const history = await getMessageHistory(threadID);
+      const response = await routeRequest({
+        history,
+        prompt,
+        provider,
+        model,
+        metadata,
+      });
 
-export const handler = async (event: any) => {
-    try { 
+      saveMessages(prompt, response.text, threadID);
 
-        const body = typeof event.body === 'string' ? JSON.parse(event.body) : event.body;
-        const parsed = RequestSchema.safeParse(body);
-        
-        if (!parsed.success) {
-            return {
-                statusCode: 400,
-                body: JSON.stringify({
-                    error: "Invalid request body.",
-                    details: parsed.error.flatten(),
-                }),
-            };
-        }
+      let successReason;
 
-        const { prompt } = parsed.data;
-        const threadID = parsed.data.threadID || Date.now().toString();
-        let { provider, model } = parsed.data;
-        const history = await getMessageHistory(threadID);
+      if (response.simpleCacheHit) {
+        successReason = 'SIMPLE_CACHE_HIT';
+      } else if (response.semanticCacheHit) {
+        successReason = 'SEMANTIC_CACHE_HIT';
+      } else {
+        successReason = 'LLM_RESPONSE';
+      }
 
-        if (!prompt) {
-            return {
-                statusCode: 400,
-                body: JSON.stringify({
-                    message: "No prompt provided in the request body.",
-                }),
-            };
-        }
-
-        await saveMessage({
-            threadID: threadID,
-            role: 'user',
-            content: prompt,
-        })
-
-        if (!provider) {
-            provider = Math.random() < 0.5 ? 'openai' : 'anthropic';
-        }
-
-        const response = await callLLM(history, prompt, provider, model);
-
-        await saveMessage({
-            threadID: threadID,
-            role: 'assistant',
-            content: response.text,
-        })
-
-        return {
-            statusCode: 200,
-            body: JSON.stringify({
-                threadID,
-                provider,
-                response,
-            }),
-        };
+      logger.logSuccessData(
+        response.model,
+        response.provider,
+        response.log,
+        successReason,
+        JSON.stringify(response, null, 2),
+        response.cost
+      );
+      return {
+        statusCode: 200,
+        headers: {
+          'simple-cache': `${response.simpleCacheHit ? 'HIT' : 'MISS'}`,
+          'semantic-cache': `${response.semanticCacheHit ? 'HIT' : 'MISS'}`,
+        },
+        body: JSON.stringify({
+          threadID,
+          response,
+        }),
+      };
     } catch (error) {
-        console.error(error);
-        return {
-            statusCode: 500,
-            body: JSON.stringify({
-                error: "An error occurred while processing the request.",
-            }),
-        };
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown Error';
+
+      await logger.logErrorData('Unknown Error Reason', errorMessage);
+      return {
+        statusCode: 500,
+        body: JSON.stringify({
+          error: errorMessage,
+        }),
+      };
     }
-}
-
-
-
-
-
-
-
-
+};
