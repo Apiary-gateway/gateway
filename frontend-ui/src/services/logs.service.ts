@@ -13,7 +13,7 @@ const getApiEndpoint = (): string => {
 export const API_BASE_URL = getApiEndpoint();
 
 // export const API_BASE_URL =
-//   'https://ds6bkq9716.execute-api.us-east-2.amazonaws.com/dev/';
+//   'https://gts710xw7d.execute-api.us-east-2.amazonaws.com/dev/';
 
 export const getLogsFromDynamo = async (
   nextToken: string | null

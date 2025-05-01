@@ -10,8 +10,8 @@
     "availableMetadata": [],
     "conditions": [],
     "defaultModel": {
-      "anthropic": "openai",
-      "model": "claude-3-5-haiku-20241022"
+      "provider": "openai",
+      "model": "gpt-3.5-turbo"
     }
   },
   "cache": {

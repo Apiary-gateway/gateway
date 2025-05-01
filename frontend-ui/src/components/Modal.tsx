@@ -41,7 +41,9 @@ const Modal = ({ children, onClose }: ModalProps) => {
         <button className="modal-close-button" onClick={initiateClose}>
           ✕
         </button>
-        {children}
+        <div className="modal-scrollable-content">
+          {children}
+        </div>
       </div>
     </div>,
     modalRoot
