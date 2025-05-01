@@ -1,26 +1,32 @@
 {
   "routing": {
     "enableFallbacks": true,
-    "fallbackModel": { "provider": "anthropic", "model": "claude-3-5-haiku-20241022" },
+    "fallbackModel": {
+      "provider": "anthropic",
+      "model": "claude-3-5-haiku-20241022"
+    },
     "fallbackOnStatus": [500, 503, 429, 401, 403],
     "retries": 3,
     "availableMetadata": [],
     "conditions": [],
-    "defaultModel": { "provider": "openai", "model": "gpt-3.5-turbo"}
+    "defaultModel": {
+      "provider": "openai",
+      "model": "gpt-3.5-turbo"
+    }
   },
   "cache": {
     "enableSimple": true,
     "simpleCacheTtlSeconds": 300,
     "enableSemantic": false,
     "semanticCacheTtlSeconds": 300,
-    "semanticCacheThreshold": 0.70
+    "semanticCacheThreshold": 0.7
   },
   "guardrails": {
     "enabled": true,
-    "threshold": 0.70,
+    "threshold": 0.7,
     "restrictedWords": [],
     "sensitivityLevel": 2,
-    "resendOnViolation": false, 
+    "resendOnViolation": false,
     "blockedContentResponse": "I'm sorry, I can't answer that."
   },
   "systemPrompt": "You are a helpful assistant. You are jovial."
