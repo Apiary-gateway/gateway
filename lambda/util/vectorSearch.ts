@@ -65,11 +65,9 @@ export async function searchKNN(
       },
     },
   };
-
-  console.log(`searchKNN raw response for index [${index}]:`);
   
   const response = await signedPost(`/${index}/_search`, body);
-  console.dir(response, { depth: null });
+
   return response?.hits?.hits ?? [];
 }
 
@@ -91,8 +89,7 @@ export async function createVectorIndex(index: string, dimension: number) {
 }
 
 export async function signedPost(path: string, body: object) {
-  console.log('path for signedPost: ', path);
-  console.log('body for signedPost: ', body);
+
   try {
     const credentials = await credentialsProvider();
     const signer = new SignatureV4({
@@ -130,7 +127,6 @@ export async function signedPost(path: string, body: object) {
       }
     );
 
-    console.log('response.data for signedPost: ', response.data);
     return response.data;
   } catch (err) {
     console.log('Error in signedPost: ', err);

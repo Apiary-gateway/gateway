@@ -38,7 +38,7 @@ export async function initConfig(): Promise<void> {
 }
 
 function isValidConfig(config: unknown): config is Config {
-    console.log(config)
+
     if (!config || typeof config !== 'object') return false;
 
     const requiredKeys = ['routing', 'guardrails', 'cache'];
