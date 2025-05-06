@@ -63,75 +63,80 @@ export class Logger {
 
   private async log(): Promise<void> {
     // Build the log object
-    const structuredLog: StructuredLogData = {
-      id: uuidv4(),
-      timestamp: this.requestStartTime.getTime(),
-      latency: BigInt(Date.now() - this.requestStartTime.getTime()),
-      is_successful: this.is_successful,
-      success_reason: this.success_reason,
-      error_reason: this.error_reason,
-      model_routing_history: JSON.stringify(this.model_routing_history),
-      user_id: this.user_id,
-      metadata: this.metadata,
-      thread_id: this.thread_id,
-      provider: this.provider,
-      model: this.model,
-      cost: this.cost,
-      raw_request: this.raw_request,
-      raw_response: this.raw_response,
-      error_message: this.error_message,
-    };
-
-    // Write to DynamoDB only
-    const isoDate = new Date(structuredLog.timestamp).toISOString();
-    await Logger.ddb.send(
-      new PutItemCommand({
-        TableName: LOG_TABLE_NAME,
-        Item: {
-          PK: { S: 'LOG' },
-          SK: { S: `TS#${isoDate}` },
-          id: { S: structuredLog.id },
-          timestamp: { S: isoDate },
-          latency: { N: structuredLog.latency.toString() },
-          is_successful: { BOOL: structuredLog.is_successful },
-          success_reason: structuredLog.success_reason
-            ? { S: structuredLog.success_reason }
-            : { NULL: true },
-          error_reason: structuredLog.error_reason
-            ? { S: structuredLog.error_reason }
-            : { NULL: true },
-          model_routing_history: { S: structuredLog.model_routing_history },
-          user_id: structuredLog.user_id
-            ? { S: structuredLog.user_id }
-            : { NULL: true },
-          metadata: structuredLog.metadata
-            ? { S: structuredLog.metadata }
-            : { NULL: true },
-          thread_id: structuredLog.thread_id
-            ? { S: structuredLog.thread_id }
-            : { NULL: true },
-          provider: structuredLog.provider
-            ? { S: structuredLog.provider }
-            : { NULL: true },
-          model: structuredLog.model
-            ? { S: structuredLog.model }
-            : { NULL: true },
-          cost:
-            structuredLog.cost !== null
-              ? { N: structuredLog.cost.toString() }
+    try {
+      const structuredLog: StructuredLogData = {
+        id: uuidv4(),
+        timestamp: this.requestStartTime.getTime(),
+        latency: BigInt(Date.now() - this.requestStartTime.getTime()),
+        is_successful: this.is_successful,
+        success_reason: this.success_reason,
+        error_reason: this.error_reason,
+        model_routing_history: JSON.stringify(this.model_routing_history),
+        user_id: this.user_id,
+        metadata: this.metadata,
+        thread_id: this.thread_id,
+        provider: this.provider,
+        model: this.model,
+        cost: this.cost,
+        raw_request: this.raw_request,
+        raw_response: this.raw_response,
+        error_message: this.error_message,
+      };
+  
+      // Write to DynamoDB only
+      const isoDate = new Date(structuredLog.timestamp).toISOString();
+      await Logger.ddb.send(
+        new PutItemCommand({
+          TableName: LOG_TABLE_NAME,
+          Item: {
+            PK: { S: 'LOG' },
+            SK: { S: `TS#${isoDate}` },
+            id: { S: structuredLog.id },
+            timestamp: { S: isoDate },
+            latency: { N: structuredLog.latency.toString() },
+            is_successful: { BOOL: structuredLog.is_successful },
+            success_reason: structuredLog.success_reason
+              ? { S: structuredLog.success_reason }
               : { NULL: true },
-          raw_request: structuredLog.raw_request
-            ? { S: structuredLog.raw_request }
-            : { NULL: true },
-          raw_response: structuredLog.raw_response
-            ? { S: structuredLog.raw_response }
-            : { NULL: true },
-          error_message: structuredLog.error_message
-            ? { S: structuredLog.error_message }
-            : { NULL: true },
-        },
-      })
-    );
+            error_reason: structuredLog.error_reason
+              ? { S: structuredLog.error_reason }
+              : { NULL: true },
+            model_routing_history: { S: structuredLog.model_routing_history },
+            user_id: structuredLog.user_id
+              ? { S: structuredLog.user_id }
+              : { NULL: true },
+            metadata: structuredLog.metadata
+              ? { S: structuredLog.metadata }
+              : { NULL: true },
+            thread_id: structuredLog.thread_id
+              ? { S: structuredLog.thread_id }
+              : { NULL: true },
+            provider: structuredLog.provider
+              ? { S: structuredLog.provider }
+              : { NULL: true },
+            model: structuredLog.model
+              ? { S: structuredLog.model }
+              : { NULL: true },
+            cost:
+              structuredLog.cost !== null
+                ? { N: structuredLog.cost.toString() }
+                : { NULL: true },
+            raw_request: structuredLog.raw_request
+              ? { S: structuredLog.raw_request }
+              : { NULL: true },
+            raw_response: structuredLog.raw_response
+              ? { S: structuredLog.raw_response }
+              : { NULL: true },
+            error_message: structuredLog.error_message
+              ? { S: structuredLog.error_message }
+              : { NULL: true },
+          },
+        })
+      );
+    } catch (error) {
+      console.error('Failed to log to DynamoDB', error)
+    }
+
   }
 
   setRawRequest(rawRequest: string) {

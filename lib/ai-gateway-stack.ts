@@ -20,6 +20,8 @@ import {
   RemovalPolicy,
   SecretValue,
   CustomResource,
+  aws_cloudfront as cloudfront,
+  aws_cloudfront_origins as origins,
 } from 'aws-cdk-lib';
 // ✅ Add these imports for scheduling
 import { Rule, Schedule } from 'aws-cdk-lib/aws-events';
@@ -790,6 +792,14 @@ export class AiGatewayStack extends Stack {
       })
     );
 
+    const frontendDistribution = new cloudfront.Distribution(this, 'FrontendDist', {
+      defaultRootObject: 'index.html',
+      defaultBehavior: {
+        origin: new origins.S3StaticWebsiteOrigin(frontendBucket),
+        viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+      },
+    });
+
     // Define the logs and config endpoints
     const apiEndpoint = `${api.url}`;
 
@@ -810,9 +820,9 @@ export class AiGatewayStack extends Stack {
     });
 
     // Output the deployed website URL for the S3 frontend bucket
-    new CfnOutput(this, 'FrontendBucketUrl', {
-      value: frontendBucket.bucketWebsiteUrl,
-      description: 'URL for the deployed frontend S3 bucket website',
+    new CfnOutput(this, 'FrontendCloudFrontUrl', {
+      value: `https://${frontendDistribution.distributionDomainName}`,
+      description: 'CloudFront HTTPS URL for the frontend',
     });
 
     encryptionPolicy.applyRemovalPolicy(RemovalPolicy.DESTROY);

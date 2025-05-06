@@ -30,7 +30,7 @@ export const handler = async (event: unknown) => {
         metadata,
       });
 
-      saveMessages(prompt, response.text, threadID);
+      await saveMessages(prompt, response.text, threadID);
 
       let successReason;
 
@@ -42,7 +42,7 @@ export const handler = async (event: unknown) => {
         successReason = 'LLM_RESPONSE';
       }
 
-      logger.logSuccessData(
+      await logger.logSuccessData(
         response.model,
         response.provider,
         response.log,
@@ -50,6 +50,7 @@ export const handler = async (event: unknown) => {
         JSON.stringify(response, null, 2),
         response.cost
       );
+   
       return {
         statusCode: 200,
         headers: {

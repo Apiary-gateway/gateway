@@ -2,7 +2,7 @@ import axios from 'axios';
 import { LogsResponse, LogsResponseSchema } from '../types/logs.types';
 
 const getApiEndpoint = (): string => {
-  console.log(window);
+
   if (typeof window !== 'undefined' && 'API_ENDPOINT' in window) {
     return (window as any).API_ENDPOINT;
   }
