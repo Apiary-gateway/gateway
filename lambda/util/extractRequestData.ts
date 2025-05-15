@@ -2,10 +2,11 @@ import { getConfig } from './getConfig';
 import { RequestPayload } from './schemas/requestSchema';
 import { ParsedRequestData, RequestMetadata } from './types';
 import { requestIsValid } from './validateRequest';
+import { v4 as uuidv4 } from 'uuid';
 
 export function extractRequestData(parsed: RequestPayload): ParsedRequestData {
   return {
-    threadID: parsed.threadID || Date.now().toString(),
+    threadID: parsed.threadID || uuidv4(),
     prompt: parsed.prompt,
     provider: parsed.provider || undefined,
     model: parsed.model,

@@ -39,7 +39,7 @@ export default async function callLLM({ history, prompt, provider, model, log, u
     Promise<CallLLMResponse> {
     try {
         const config = getConfig();
-        const simpleCacheResponse = config.cache.enableSimple 
+        const simpleCacheResponse = config.cache.enableSimple && history.length === 0
             ? await checkSimpleCache(prompt, userId, provider, model) 
             : null;
         if (simpleCacheResponse) {
@@ -58,7 +58,7 @@ export default async function callLLM({ history, prompt, provider, model, log, u
         const requestEmbedding = config.cache.enableSemantic 
             ? await getEmbedding(prompt)
             : null;
-        const semanticCacheResponse = config.cache.enableSemantic 
+        const semanticCacheResponse = config.cache.enableSemantic && history.length === 0
             ? await checkSemanticCache(requestEmbedding!, userId, provider, model)
             : null;
         if (semanticCacheResponse) {
